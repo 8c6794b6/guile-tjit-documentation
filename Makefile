@@ -17,5 +17,5 @@ bench.dat:
 
 
 clean:
-	rm -f ${base}.log ${base}.pdf ${base}.aux
+	rm -f *.log *.pdf *.aux *.dvi *~
 

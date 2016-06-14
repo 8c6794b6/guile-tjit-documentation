@@ -1,5 +1,10 @@
 # -*- mode: gnuplot -*-
 # set title "Total time (Normalized to Guile VM regular)"
+set terminal postscript eps enhanced color size 15,6 font "Helvetica,25"
+if (!exists("outfile")) outfile='bench.eps'
+set output outfile
+
+set multiplot layout 1,2
 unset title
 # set title "Benchmark results"
 # set ylabel "Total time normalized to Guile regular VM (smaller is better)" \
@@ -12,6 +17,7 @@ unset key
 # set linetype 1 lc rgb "#FF00FF" lw 1 pt 3
 # set linetype 2 lc rgb "#00FFFF" lw 1 pt 3
 set linetype 3 lc rgb "#e69f00" lw 1 pt 3
+set linetype 4 lc rgb "#0072b2" lw 1 pt 3
 set label 1 'Nash'   at graph 0.02, 0.85 left rotate by 90
 set label 2 'Racket' at graph 0.035, 0.85 left rotate by 90
 set label 3 'Pycket' at graph 0.050, 0.85 left rotate by 90
@@ -21,7 +27,6 @@ set object 3 rect front fc lt 3 at graph 0.050, 0.81 size 0.2,0.1
 # set terminal svg enhanced size 1838 820 font "Arial,16"
 # set terminal svg enhanced size 1838 820 font "Arial,20"
 # set terminal postscript eps enhanced size 1838,820 font "Helvetica,20"
-set terminal postscript eps enhanced color size 15,6 font "Helvetica,25"
 set style data histogram
 set style histogram cluster gap 2
 set style fill solid 1.0 border -1
@@ -39,6 +44,19 @@ set tics scale 0.0
 set xtic rotate out
 set ytic rotate out # offset character 1,0
 # set xtic rotate out
-if (!exists("outfile")) outfile='bench.eps'
-set output outfile
-plot for [col=2:4] "bench.dat" using col:xticlabel(1) title columnheader
+# plot for [col=2:4] "bench.dat" using col:xticlabel(1) title columnheader
+set rmargin at screen 0.92
+set bmargin at screen 0.18
+plot for [col=2:5] "bench.dat" using col:xticlabel(1) title columnheader
+
+unset ylabel
+unset label 1
+unset label 2
+unset label 3
+unset object 1
+unset object 2
+unset object 3
+unset rmargin
+set lmargin at screen 0.95
+
+plot for [col=2:5] "gm2-mean.dat" using col:xticlabel(1) title columnheader
