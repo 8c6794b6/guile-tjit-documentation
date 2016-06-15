@@ -1,6 +1,6 @@
 # -*- mode: gnuplot -*-
 # set title "Total time (Normalized to Guile VM regular)"
-set terminal postscript eps enhanced color size 14.5,6 font "Helvetica,25"
+set terminal postscript eps enhanced color size 15,6 font "Helvetica,25"
 if (!exists("outfile")) outfile='bench.eps'
 set output outfile
 
