@@ -928,44 +928,37 @@ destination of \texttt{(br-if-u64-<=~4~0~\#f~9)} in recorded trace.
   \centering
   \small
 \begin{verbatim}
-0x00f9405b mov    rax,QWORD PTR [rbx]
-0x00f9405e mov    r14,rax
-0x00f94061 mov    rax,QWORD PTR [rbx+0x8]
-0x00f94065 mov    r15,rax
-0x00f94068 mov    rax,QWORD PTR [rbx+0x18]
-0x00f9406c mov    r9,rax
-0x00f9406f mov    rax,QWORD PTR [rbx+0x20]
-0x00f94073 mov    r8,rax
-0x00f94076 mov    rax,QWORD PTR [rbx+0x28]
-0x00f9407a mov    rcx,rax
-0x00f9407d mov    rax,QWORD PTR [rbx+0x30]
-0x00f94081 mov    rdx,rax
-0x00f94084 nop    DWORD PTR [rax+0x0]
+0x02cd905b mov    r14,QWORD PTR [rbx]
+0x02cd905e mov    r15,QWORD PTR [rbx+0x8]
+0x02cd9062 mov    r9,QWORD PTR [rbx+0x18]
+0x02cd9066 mov    r8,QWORD PTR [rbx+0x20]
+0x02cd906a mov    rcx,QWORD PTR [rbx+0x28]
+0x02cd906e mov    rdx,QWORD PTR [rbx+0x30]
+0x02cd9072 nop    WORD PTR [rax+rax*1+0x0]
 loop:
-0x00f94088 lea    r14,[rdx+0x1]
-0x00f9408c mov    r11,QWORD PTR [rcx]
-0x00f9408f sar    r11,0x8
-0x00f94093 cmp    rdx,r11
-0x00f94096 jge    0x00fa1028    ->1
-0x00f9409c lea    r11,[rdx+0x1]
-0x00f940a0 lea    rax,[r11*8+0x0]
-0x00f940a8 mov    rdx,QWORD PTR [rax+rcx*1]
-0x00f940ac test   rdx,0x2
-0x00f940b3 je     0x00fa1030    ->2
-0x00f940b9 mov    r11,rdx
-0x00f940bc sar    r11,0x2
-0x00f940c0 cmp    r9,r11
-0x00f940c3 jge    0x00fa1030    ->2
-0x00f940c9 add    r15,rdx
-0x00f940cc sub    r15,0x2
-0x00f940d0 cmp    r8,r14
-0x00f940d3 jle    0x00fa1038    ->3
-0x00f940d9 mov    rdx,r14
-0x00f940dc jmp    0x00f94088    ->loop
-0x00f940e1 nop    DWORD PTR [rax+0x0]
+0x02cd9078 lea    r14,[rdx+0x1]
+0x02cd907c mov    r11,QWORD PTR [rcx]
+0x02cd907f sar    r11,0x8
+0x02cd9083 cmp    rdx,r11
+0x02cd9086 jge    0x02ce6028    ->1
+0x02cd908c lea    r11,[rdx+0x1]
+0x02cd9090 lea    rax,[r11*8+0x0]
+0x02cd9098 mov    rdx,QWORD PTR [rax+rcx*1]
+0x02cd909c test   rdx,0x2
+0x02cd90a3 je     0x02ce6030    ->2
+0x02cd90a9 mov    r11,rdx
+0x02cd90ac sar    r11,0x2
+0x02cd90b0 cmp    r9,r11
+0x02cd90b3 jge    0x02ce6030    ->2
+0x02cd90b9 add    r15,rdx
+0x02cd90bc sub    r15,0x2
+0x02cd90c0 cmp    r8,r14
+0x02cd90c3 jle    0x02ce6038    ->3
+0x02cd90c9 mov    rdx,r14
+0x02cd90cc jmp    0x02cd9078    ->loop
+0x02cd90d1 nop    DWORD PTR [rax+0x0]
 \end{verbatim}
-\caption{Native code of compiled primitive operations under x86-64
-  architecture.}
+\caption{Native code of compiled trace under x86-64 architecture.}
 \label{fig:ncode}
 \end{figure}
 
@@ -1096,13 +1089,12 @@ condition branches, such as \texttt{paraffins} and \texttt{dynamic}. Nash
 performed bad in \texttt{parsing} benchmark also, but the performance of
 \texttt{parsing} in Pycket was close to Racket.
 
-Design of snapshot was inspired from LuaJIT~\cite{pall2016luajit}. LuaJIT uses
-more sophisticated approach and compresses snapshot data. LuaJIT used
-NaN-tagging~\cite{pall2009ip}, which enables efficient handling of unboxed
-floating point numbers. Guile once had an attempt to use
-NaN-tagging~\cite{wingo2011value}, though the attempt wasn't merged to Guile
-source code, due to supporting conservative garbage collector under 32 bit
-architectures.
+Design of snapshot was inspired from LuaJIT~\cite{pall2009ip}. LuaJIT uses more
+sophisticated approach and compresses snapshot data. LuaJIT used NaN-tagging,
+which enables efficient handling of unboxed floating point numbers. Guile once
+had an attempt to use NaN-tagging~\cite{wingo2011value}, though the attempt
+wasn't merged to Guile source code, due to supporting conservative garbage
+collector under 32 bit architectures.
 
 \section{Future Work}
 \label{sec:future}
