@@ -63,12 +63,11 @@
 
 % Uncomment the publication rights you want to use.
 %\publicationrights{transferred}
-\publicationrights{licensed}     % this is the default
+%\publicationrights{licensed}     % this is the default
 %\publicationrights{author-pays}
 
-%% \titlebanner{banner above paper title}        % These are ignored unless
+% These are ignored unless 'preprint' option specified.
 \titlebanner{DRAFT}
-%% \preprintfooter{short description of paper}   % 'preprint' option specified.
 \preprintfooter{DRAFT --- Nash: a tracing JIT for GNU Guile}
 
 \title{Nash: A Tracing JIT VM For GNU Guile}
@@ -91,7 +90,6 @@ met, Nash runs \textit{$40\times$ faster} than Guile's existing VM, without
 modifying the input program source code. Benchmarks have shown performance close
 to other Scheme implementations which compile to native code.
 
-
 Design of Nash internal is discussed. Nash coexists with Guile's existing VM,
 uses the existing VM during native code compilation. Lots of Guile's features,
 such as bytecode compiler, bytecode interpreter, are reused in Nash. Nash could
@@ -108,7 +106,7 @@ that Nash could be used as a VM for other languages.
 %% \terms
 %% term1, term2
 
-\keywords{} Scheme~Programming~Language, Just-In-Time Compiler, Virtual~Machine,
+\keywords{} Scheme~Programming~Language, Just-In-Time~Compiler, Virtual~Machine,
 Implementation,
 
 \section{Introduction}
@@ -198,9 +196,9 @@ native code. Details of the JIT compiler is covered in
 Section~\hyperref[sec:compiler]{\ref{sec:compiler}}. The details of Nash
 internal are explained with using \texttt{sample-sum}.
 
-The rest of the sections are organized as follows. In
-Section~\hyperref[sec:evaluation]{\ref{sec:evaluation}}, results of benchmark
-are shown, including comparisons between Nash and other Scheme
+The rest of the sections are organized as follows.
+Section~\hyperref[sec:evaluation]{\ref{sec:evaluation}} shows results from
+benchmark, including comparisons between Nash and other Scheme
 implementations. Section~\hyperref[sec:related]{\ref{sec:related}} mentions
 related works. Finally, Section~\hyperref[sec:conclusion]{\ref{sec:future}}
 discusses possibilities for future work, and
@@ -276,8 +274,8 @@ Boehm-Demers-Weiser garbage collector~\cite{boehm1988garbage}.
     \texttt{XXXXXXXXXXXXXX10} & small integer & 1, 2, 3, 4, 5 \ldots \\
     \texttt{XXXXXXXXXXXXX100} & boolean false & \#f \\
     \texttt{XXXXXXXX00001100} & character & \#\textbackslash{} a,
-    \#\textbackslash{} b, \ldots \\ % \hline
-    \texttt{XXXXXX1100000100} & empty list & `() \\ % \hline
+    \#\textbackslash{} b, \ldots \\
+    \texttt{XXXXXX1100000100} & empty list & `() \\
     \texttt{XXXXX10000000100} & boolean true & \#t \\
     \bottomrule
   \end{tabular}
@@ -752,8 +750,7 @@ recording. \texttt{VM\_NASH\_MERGE} is defined with empty body when including
 
 This section describes details of the JIT compiler in Nash, which is written in
 Scheme. Compiled bytecode of the JIT compiler is executed by
-\texttt{vm\_regular\_engine} shown in
-Figure~\hyperref[fig:overview]{\ref{fig:overview}}.
+\texttt{vm\_regular\_engine}.
 
 \subsection{Trace To IR}
 Nash compiles traces to relaxed A-normal form~\cite{flanagan1993essence}
@@ -877,13 +874,14 @@ compared. Types of variables are determined from the bytecode.
 \paragraph{mov} Line 27 simply does a move, and overwrites the contents of
 \texttt{v6} with \texttt{v0}.
 
-\paragraph{} Then the IR shows a call to \texttt{loop}, which tells that the
-computation loops to the beginning of loop body section. Native code loop body
-exits when any of the guard failed.  For instance, when the result returned by
-\texttt{(\%gt~v4~v0)} differed from the result observed at the time of JIT
-compilation, a native code generated from \texttt{(\%snap 3 v0 v1 v6)} will pass
-back the control to \texttt{vm\_nash\_engine}, and the control of input program
-will continue from bytecode IP \texttt{7f4ddb7fc5b0}, which is the jump
+\paragraph{br} Then the IR shows a call to \texttt{loop}, which tells that the
+computation jumps to the beginning of loop body section. Loop body of native
+code exit when any of the guards failed.  For instance, when the result returned
+by \texttt{(\%gt~v4~v0)} differed from the result observed at the time of JIT
+compilation, native code will pass the control back to
+\texttt{vm\_nash\_engine}, recover the interpreter state by using snapshot data
+from \texttt{(\%snap~3~v0~v1~v6)} and the bytecode interpretation of input
+program will continue from bytecode IP \texttt{7f4ddb7fc5b0}, which is the jump
 destination of \texttt{(br-if-u64-<=~4~0~\#f~9)} in recorded trace.
 \footnote{ \texttt{7f4ddb7fc5b0 = 7f4ddb7fc8c + (9 * 4)}.  \texttt{7f4ddb7fc8c}
   is the absolute bytecode IP of \texttt{(br-if-u64-<= 4 0 \#f 9)} shown in
@@ -975,25 +973,27 @@ loop:
 Figure~\hyperref[fig:primops]{\ref{fig:primops}} shows IR after register
 assignment. The numbers in left of each line, which are omitted for snapshot
 data, tells primitive operation number. The variables for primitive operations
-in Figure~\hyperref[fig:primops]{\ref{fig:primops}} are using register names
-in x86-64 architecture. Nash uses a module defining architecture specific
-register variable. However, at the time of writing, x86-64 implementation of
-the register variable module is the only one which exist.
+in Figure~\hyperref[fig:primops]{\ref{fig:primops}} are using register names in
+x86-64 architecture. Nash uses a module which defines architecture specific
+register variables. At the time of writing, x86-64 implementation is the only
+one which exist.
 
-Nash uses GNU lightning as an assembler backend.  GNU lightning is a JIT
+Nash uses GNU lightning as an assembler backend\cite{}. GNU lightning is a JIT
 compilation library, which runs under various architectures including aarch64,
 alpha, arm, ia64, mips, powerpc, s390, sparc, and x86. Nash contains a thin C
 wrapper which binds SCM type to the types understood by GNU lightning. The
-resulting bindings could be called from Scheme code running under
-\texttt{vm\_regular\_engine}, just like the other Scheme procedures defined in
-C. Figure~\hyperref[fig:ncode]{\ref{fig:ncode}} shows dumped native code of
+resulting bindings are called from Scheme code under
+\texttt{vm\_regular\_engine} just like other Scheme procedures defined in
+C.
+
+Figure~\hyperref[fig:ncode]{\ref{fig:ncode}} shows dumped native code of
 primitive operations shown in Figure~\hyperref[fig:primops]{\ref{fig:primops}}
 under x86-64 architecture. The native code contains a mark to show the beginning
 of loop body with \texttt{loop:}, and corresponding snapshot ID number for jump
 instructions.
 
-Compiled native code of Nash contains debug symbol to interact with JIT
-compilation interface in GDB, a well-known open-source debugger.\@ The debugging
+Native code compiled in Nash contains debug symbol to interact with JIT
+compilation interface in GDB, a well-known open-source debugger. This debugging
 support is turned off by default, turned on by passing command line option when
 invoking \texttt{guile} executable.
 \footnote{Other than debug symbol, Nash contains a command line option to dump
@@ -1013,25 +1013,21 @@ invoking \texttt{guile} executable.
 \label{fig:bench}
 \end{figure}
 
-%% \subsection{Scheme benchmarks}
+\subsection{Settings}
 
 Performance of Nash is evaluated with modified cross platform benchmark suite
-from Pycket project. The source code of the benchmarks originate to benchmark
-Larceny and Gambit. The version used are modified to benchmark Pycket. Slight
-modifications were done to the Pycket version for evaluating Nash. Benchmarks
-\texttt{ntakl} and \texttt{quicksort} were enabled, and iteration counts for
-\texttt{ctak}, \texttt{fft}, \texttt{pnpoly}, \texttt{fibc}, and \texttt{ray}
-are decreased, which were taking long execution time in Guile's VM-regular. The
-modified benchmark suite contains 56 programs. The benchmark results were taken
-under a machine with Intel Core-i5 3427-U and 8GB of memory running Arch Linux,
-Linux kernel 4.5.4. The Scheme implementations and its versions used are Guile
-VM-regular version 2.1.2, Racket version 6.5, and Pycket git revision 5f98bfe
-(with RPython hg revision 83529:2179c). Total elapsed time to compute each
-benchmark program were measured, including JIT warm up. Figure~\ref{fig:bench}
-shows relative total time of each benchmark and geometric mean normalized to
-Guile's VM-regular. The range of the plot in the figure is limited from 0 to 2
-for displaying purpose. Table~\hyperref[tab:bench]{\ref{tab:bench}} contains
-selected benchmark results and geometric mean shown in numbers.
+from Pycket project. The source code of the benchmarks originate from Larceny
+and Gambit project. Slight modifications were done to the Pycket version for
+evaluating Nash. Benchmarks \texttt{ntakl} and \texttt{quicksort} were enabled,
+and iteration counts for \texttt{ctak}, \texttt{fft}, \texttt{pnpoly},
+\texttt{fibc}, and \texttt{ray} are decreased, which were taking long execution
+time in Guile's VM-regular. The modified benchmark suite contains 56
+programs. The benchmark results were taken under a machine with Intel Core-i5
+3427-U and 8GB of memory, running Arch Linux, Linux kernel 4.5.4. The Scheme
+implementations and its versions used are Guile VM-regular version 2.1.2, Racket
+version 6.5, and Pycket git revision 5f98bfe (with RPython hg revision
+83529:2179c). Total elapsed time of each program including JIT warm up time was
+measured.
 
 \begin{table}
   \centering
@@ -1058,43 +1054,26 @@ selected benchmark results and geometric mean shown in numbers.
 \label{tab:bench}
 \end{table}
 
-Geometric means of 56 benchmarks shows that Nash runs approximately $2.4\times$
-\textit{faster} than VM-regular, $1.3\times$ \textit{slower} than Racket, and
-$1.8\times$ \textit{slower} than Pycket.  Some of the benchmarks have shown
-significant performance improvement in Nash compared to VM-regular. Benchmark
-\texttt{sumfp} and \texttt{mbrot} contain tight loop with Scheme
-\texttt{flonum}. Nash runs \texttt{sumfp} $40\times$ faster, and \texttt{mbrot}
-$25\times$ faster than VM-regular. The results of \texttt{sumfp} and
-\texttt{mbrot} are about $5\times$ and $3.3\times$ faster than Racket,
-respectively. However, both benchmarks still run slower than Pycket.  Some of
-the benchmarks performed worse than Guile's VM-regular. Benchmark
-\texttt{parsing} and \texttt{dynamic} contain program to parse a Scheme source
-code. These programs include lots of branching conditions. The \texttt{parsing}
-and \texttt{dynamic} performed about $2\times$ and $5\times$ slower than
-VM-regular, respectively.
+\subsection{Results}
 
-%% \subsection{Cross Language Benchmark}
-
-%% TBD.
-
-%% Maybe add nested tight loop program, compare with C, Lua, Python, and
-%% JavaScript:
-%%
-%% (define (loop)
-%%   (let lp1 ((i1 0) (counter 0))
-%%     (if (< i1 10)
-%%         (let lp2 ((i2 0) (counter counter))
-%%           (if (< i2 32000)
-%%               (let lp3 ((i3 0) (counter counter))
-%%                 (if (< i3 32000)
-%%                     (lp3 (+ i3 1)
-%%                          (let ((counter (+ counter 1)))
-%%                            (if (< 50 counter)
-%%                                0
-%%                                counter)))
-%%                     (lp2 (+ i2 1) counter)))
-%%               (lp1 (+ i1 1) counter)))
-%%         counter)))
+Figure~\ref{fig:bench} shows relative total time of each benchmark and geometric
+mean normalized to Guile's VM-regular. The range of the plot in the figure is
+limited from 0 to 2 for displaying
+purpose. Table~\hyperref[tab:bench]{\ref{tab:bench}} contains selected benchmark
+results and geometric mean shown in numbers.  Geometric means of 56 benchmarks
+shows that Nash runs approximately $2.4\times$ \textit{faster} than VM-regular,
+$1.3\times$ \textit{slower} than Racket, and $1.8\times$ \textit{slower} than
+Pycket.  Some of the benchmarks have shown significant performance improvement
+in Nash compared to VM-regular. Benchmark \texttt{sumfp} and \texttt{mbrot}
+contain tight loop with Scheme \texttt{flonum}. Nash runs \texttt{sumfp}
+$40\times$ faster, and \texttt{mbrot} $25\times$ faster than VM-regular. The
+results of \texttt{sumfp} and \texttt{mbrot} are about $5\times$ and $3.3\times$
+faster than Racket, respectively. However, both benchmarks still run slower than
+Pycket.  Some of the benchmarks performed worse than Guile's
+VM-regular. Benchmark \texttt{parsing} and \texttt{dynamic} contain program to
+parse a Scheme source code. These programs include lots of branching
+conditions. The \texttt{parsing} and \texttt{dynamic} performed about $2\times$
+and $5\times$ slower than VM-regular, respectively.
 
 \section{Related Work}
 \label{sec:related}
@@ -1102,50 +1081,53 @@ Implementation of Nash was inspired from pioneers in tracing JIT field. Nash
 does type checks in VM interpreter before running compiled native code, which
 was done TraceMonkey~\cite{gal2009trace} with similar design.
 
-Use of A-normal form was inspired from Pycket~\cite{bauman2015pycket}. Though
-Pycket expand the source code and generates JSON data, and parses it to an AST
-for execution.  Both Nash and Pycket use tracing JIT in its implementation. Both
-performed well with benchmarks containing tight loop, such as \texttt{sumfp},
-\texttt{sum}, and \texttt{sumloop}. Pycket performed better than Nash, except
-for \texttt{sum}. From Table~\hyperref[tab:bench]{\ref{tab:bench}}, Pycket
-performed well with benchmark containing extensive use of \texttt{call/cc}, such
-as \texttt{fibc} and \texttt{ctak}. Nash implements \texttt{call/cc} with C
-stack, to keep compatibility with C interface of VM-regular, which did not led
-to performance improvement. Both performed bad in benchmarks containing lots of
+Use of A-normal form~\cite{flanagan1993essence} was inspired from
+Pycket~\cite{bauman2015pycket}. Though Pycket expand the source code and
+generates JSON data, and parses it to AST for execution.  Both Nash and Pycket
+use tracing JIT in its implementation. Both performed well with benchmarks
+containing tight loop, such as \texttt{sumfp}, \texttt{sum}, and
+\texttt{sumloop}. Pycket performed better than Nash, except for
+\texttt{sum}. From Table~\hyperref[tab:bench]{\ref{tab:bench}}, Pycket performed
+well with benchmark containing extensive use of \texttt{call/cc}, such as
+\texttt{fibc} and \texttt{ctak}. Nash implements \texttt{call/cc} with C stack,
+to keep compatibility with C interface of VM-regular, which did not led to
+performance improvement. Both performed bad in benchmarks containing lots of
 condition branches, such as \texttt{paraffins} and \texttt{dynamic}. Nash
-performed bad in \texttt{parsing} benchmark also, but the performance of Pycket
-was close to Racket.
+performed bad in \texttt{parsing} benchmark also, but the performance of
+\texttt{parsing} in Pycket was close to Racket.
 
-Design of snapshot was inspired from LuaJIT~\cite{pall2009ip}. LuaJIT uses more
-sophisticated approach and compresses snapshot data. LuaJIT used NaN-tagging,
-which enables efficient handling of unboxed floating point numbers. Guile once
-had an attempt to use NaN-tagging~\cite{wingo2011value}, though the attempt
-wasn't implemented, due to supporting conservative garbage collector under 32
-bit architectures.
+Design of snapshot was inspired from LuaJIT~\cite{pall2016luajit}. LuaJIT uses
+more sophisticated approach and compresses snapshot data. LuaJIT used
+NaN-tagging~\cite{pall2009ip}, which enables efficient handling of unboxed
+floating point numbers. Guile once had an attempt to use
+NaN-tagging~\cite{wingo2011value}, though the attempt wasn't merged to Guile
+source code, due to supporting conservative garbage collector under 32 bit
+architectures.
 
 \section{Future Work}
 \label{sec:future}
 
-Nash is still an experimental implementation, have not thoroughly tested yet,
-not yet robust enough for production use. Some of the possibilities for future
-works follows.
+Nash is still an experimental implementation, still has a lot of space for
+improvement. Some of the possibilities for future works follows.
 
-\paragraph{Support more instructions} Nash still have bytecode
+\paragraph{Support more bytecode instructions} Nash still have bytecode
 instructions which are not implemented at all, such as \texttt{prompt} and
 \texttt{abort} used for delimited continuation, or partially implemented, such
-as arithmetic operations for multi-precision numbers and complex numbers. When
-JIT compiler encountered not yet implemented bytecode, the compilation work will
-break and control of the program is passed back to VM interpreter.
+as arithmetic operations. Arithmetic operations for multi-precision numbers and
+complex numbers are not yet implemented. When JIT compiler encountered
+unsupported bytecode, the compilation will break and control of the input
+program is passed back to \texttt{vm\_nash\_engine}.
 
 \paragraph{Detect more loops} Nash detects loops with backward jump,
 tail-calls, and consequent calls for non-tail-call recursion
-(\textit{downrec}\footnote{Consequent calls to procedure are called as
+(\textit{down-recursion}\footnote{Consequent calls to procedure are called as
   down-recursion in Nash, because Guile's stack grows down}), though not with
-consequent returns resulted from in non-tail-call recursions
-(\textit{uprec}). Nash does not detect looping side traces. Side traces are
-usually patched to existing trace when VM interpreter encountered beginning
-bytecode IP of existing trace. Looping side traces are the loops in the traces
-started from frequently taken exits, instead of patched back.
+consequent returns resulted from non-tail-call recursions
+(\textit{up-recursion}). Nash does not detect \textit{looping side traces}. Side
+trace start from frequently taken exit in native code. Side traces are usually
+patched to existing trace when \texttt{vm\_nash\_engine} encountered beginning
+bytecode IP of existing trace. In looping side trace, bytecode instructions loop
+inside the side trace, instead of patched back.
 
 \paragraph{Optimize IR} Nash does only a few IR level optimizations.
 More optimizations could be done, such as dead-code elimination, escape
@@ -1154,24 +1136,24 @@ registers. More sophisticated method such as Linear-Scan register
 allocation~\cite{poletto1999linear} could be used.
 
 \paragraph{Blacklist} Benchmarks such as \texttt{parsing} and
-\texttt{dynamic} were slower compared to Guile VM-regular. Programs containing
-large number of branching conditions needs some treatment to perform well
-under tracing JIT.\@ One approach is to limit the JIT compilation when
-branching exceed certain threshold. These thresholds mechanism are sometime
-called \textit{blacklisting} of trace. Nash could take more sophisticated
-approach to blacklist unwanted traces.
+\texttt{dynamic} were slower than Guile VM-regular. Programs containing large
+number of branching conditions need some treatments to perform well under
+tracing JIT.\@ One approach is to limit the JIT compilation when branching
+exceed certain threshold. These thresholds mechanism are sometime called
+\textit{blacklisting} of trace. Nash could take more sophisticated approach to
+blacklist unwanted traces.
 
 \section{Conclusion}
 \label{sec:conclusion}
 This paper has shown how Nash is designed. Nash reused existing bytecode
 interpreter in Guile, turned it to a trace recording interpreter with small
 modifications. Nash coexist with current VM, which is used for JIT compiler
-written in Scheme. Existing bytecode compiled by Guile are traced, recorded
-and compiled to native code. Resulting native code has shown significant
-performance improvement in several of the benchmarks.  Performance comparison
+written in Scheme. Existing bytecode compiled by Guile are traced, recorded and
+compiled to native code. Resulting native codes have shown significant
+performance improvement in several of the benchmarks. Performance comparison
 between Nash, Guile's VM-regular and other Scheme implementations were
-done. by using tracing JIT technique, some of the benchmarks have shown
-close performance with native code compilers such as Racket and Pycket.
+done. Benchmarks have shown close performance with native code compilers such as
+Racket and Pycket when assumptions for tracing JIT were met.
 
 %% \appendix
 %% \section{Appendix: title}
@@ -1185,15 +1167,15 @@ source developers.
 
 \bibliographystyle{abbrvnat}
 
-% Using .bib file at the moment.
-\bibliography{nash}
-
 % The bibliography should be embedded for final submission.
 
 %% \begin{thebibliography}{}
 %% \softraggedright{}
 %% ...
 %% \end{thebibliography}
+
+% Using .bib file at the moment.
+\bibliography{guile-tjit}
 
 \end{document}
 
