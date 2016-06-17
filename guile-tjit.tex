@@ -87,13 +87,13 @@
 This paper introduces \textit{Nash}, a \textit{virtual machine} (VM) for GNU
 Guile with tracing \textit{just-in-time} (JIT) compiler. Nash could be used as a
 drop-in replacement of Guile's existing VM.\@ Design of Nash internal is
-discussed in detail. Nash coexists with Guile's existing VM, uses the VM during
-native code compilation. Lots of Guile's features, such as bytecode interpreter,
-are reused in Nash. This paper shows how frequently executed loops in Guile's
-existing bytecode are compiled to native code. When conditions were met, Nash
-runs \textit{$40\times$ faster} than Guile's existing VM, without modifying the
-input program. Benchmark results of Nash are shown, including comparisons with
-other Scheme implementations.
+discussed in detail. How frequently executed loops in Guile's existing bytecode
+are compiled to native code is shown. Nash coexists with Guile's existing VM,
+uses the VM during native code compilation. Lots of Guile's features, such as
+bytecode interpreter, are reused in Nash. When conditions were met, Nash runs
+\textit{$40\times$ faster} than Guile's existing VM, without modifying the input
+program. Benchmark results of Nash are shown, including comparisons with other
+Scheme implementations.
 
 
 %% Guile contains bytecode
@@ -129,9 +129,8 @@ implementations typically compiles to native code before executing. The
 compilation could be done \textit{ahead-of-time} (AOT), such as in
 Bigloo~\cite{serrano1995bigloo} and Gambit~\cite{feeley1998gambit}, or
 incrementally, such as in Chez~\cite{dybvig2006development} and
-Larceny~\cite{hansen1992impact}, or in a mixture of AOT bytecode and JIT
-compilation, such as in Pycket~\cite{bauman2015pycket}, and
-Racket~\cite{flatt2013racket}.
+Larceny~\cite{hansen1992impact}, or in a mixture of AOT and JIT compilation,
+such as in Pycket~\cite{bauman2015pycket}, and Racket~\cite{flatt2013racket}.
 
 There exist a performance gap between Scheme implementations with native code
 compilation, with implementations without native code compilation. Tracing JIT
@@ -1080,7 +1079,7 @@ $1.3\times$ \textit{slower} than Racket, and $1.8\times$ \textit{slower} than
 Pycket.  Some of the benchmarks have shown significant performance improvement
 in Nash compared to VM-regular. Benchmark \texttt{sumfp} and \texttt{mbrot}
 contain tight loop with Scheme \texttt{flonum}. Nash runs \texttt{sumfp}
-$40\times$ faster, and \texttt{mbrot} $25\times$ faster than VM-regular. The
+$40\times$ faster, and \texttt{mbrot} $27\times$ faster than VM-regular. The
 results of \texttt{sumfp} and \texttt{mbrot} are about $5\times$ and $3.3\times$
 faster than Racket, respectively. However, both benchmarks still run slower than
 Pycket.  Some of the benchmarks performed worse than Guile's

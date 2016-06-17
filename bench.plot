@@ -1,6 +1,6 @@
 # -*- mode: gnuplot -*-
 # set title "Total time (Normalized to Guile VM regular)"
-set terminal postscript eps enhanced color size 15,6 font "Helvetica,25"
+set terminal postscript eps enhanced color size 15.2,6 font "Helvetica,25"
 if (!exists("outfile")) outfile='bench.eps'
 set output outfile
 
@@ -41,7 +41,7 @@ set grid y linestyle 0 lw 2
 set tics scale 0.0
 # set xtic border in scale 0,0 rotate by -45 offset character -1.2,0
 # set xtic rotate by -45 out offset character -1.2,0
-set xtic rotate out
+set xtic rotate out offset character -0.3,0
 set ytic rotate out # offset character 1,0
 # set xtic rotate out
 # plot for [col=2:4] "bench.dat" using col:xticlabel(1) title columnheader
