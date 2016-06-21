@@ -22,9 +22,9 @@ set linetype 4 lc rgb "#0072b2" lw 1 pt 3
 set label 1 'Nash'   at graph 0.02, 0.85 left rotate by 90
 set label 2 'Racket' at graph 0.035, 0.85 left rotate by 90
 set label 3 'Pycket' at graph 0.050, 0.85 left rotate by 90
-set object 1 rect front fc lt 1 at graph 0.02, 0.81 size 0.2,0.1
-set object 2 rect front fc lt 2 at graph 0.035, 0.81 size 0.2,0.1
-set object 3 rect front fc lt 3 at graph 0.050, 0.81 size 0.2,0.1
+set object 1 rect front fc lt 1 at graph 0.02, 0.81 size 0.2,0.1 # fillstyle border solid  lw 0
+set object 2 rect front fc lt 2 at graph 0.035, 0.81 size 0.2,0.1 # fillstyle border solid  lw 0
+set object 3 rect front fc lt 3 at graph 0.050, 0.81 size 0.2,0.1 # fillstyle border solid  lw 0
 # set terminal svg enhanced size 1838 820 font "Arial,16"
 # set terminal svg enhanced size 1838 820 font "Arial,20"
 # set terminal postscript eps enhanced size 1838,820 font "Helvetica,20"
