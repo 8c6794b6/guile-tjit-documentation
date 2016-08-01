@@ -68,9 +68,10 @@
 
 % These are ignored unless 'preprint' option specified.
 \titlebanner{DRAFT}
-\preprintfooter{DRAFT --- Nash: a tracing JIT for extension language}
 
-\title{Nash: A Tracing JIT For Extension Language}
+\preprintfooter{DRAFT --- Nash: a tracing JIT VM for Guile}
+
+\title{Nash: A Tracing JIT VM For Guile}
 %% \subtitle{Subtitle Text, if any}
 
 \authorinfo{Atsuro Hoshino}
@@ -85,18 +86,18 @@
 \begin{abstract}
 
 This paper introduces \textit{Nash}\footnote{\textbf{N}ative code
-  \textbf{AS}sembler for \textbf{H}ot instructions.}, a \textit{virtual
-  machine} (VM) for GNU Guile with tracing \textit{just-in-time} (JIT)
-compiler. Nash is designed as a drop-in replacement for Guile's existing VM.\@
-Nash could be used for running script, interacted with REPL, and embedded in
-other programs. Design of Nash internal is discussed, including VM interpreter
-which records frequently executed instructions found in Guile's bytecode, and
-JIT compiler which emits native code from recorded instructions. Nash coexists
-with Guile's existing VM.\@ Lots of Guile's features, such as bytecode
-interpreter, are reused in Nash. When conditions were met, Nash runs more than
-\textit{$40\times$ faster} than Guile's existing VM, without modifying the input
-program. Benchmark results of Nash are shown, including comparisons with other
-Scheme implementations.
+  \textbf{AS}sembler for \textbf{H}ot instructions.}, an experimental
+\textit{virtual machine} (VM) for GNU Guile with tracing \textit{just-in-time}
+(JIT) compiler. Nash is designed as a drop-in replacement for Guile's existing
+VM.\@ Nash could be used for running scripts, used at a REPL, and embedded in
+other programs. Design of Nash internals is discussed, including its VM
+interpreter which records frequently executed instructions found in Guile's
+bytecode, and its JIT compiler which emits native code from recorded
+instructions. Nash coexists with Guile's existing VM.\@ Lots of Guile's
+features, such as bytecode interpreter, are reused in Nash. When conditions were
+met, Nash runs more than \textit{$40\times$ faster} than Guile's existing VM,
+without modifying the input program. Benchmark results of Nash are shown,
+including comparisons with other Scheme implementations.
 
 
 %% Guile contains bytecode
@@ -120,8 +121,8 @@ Scheme~Programming~Language
 \section{Introduction}
 
 From its simple design, Scheme is used for various purposes, many
-implementations exist. One of the use is as an extension language embedded in
-other program. Implementations such as Chibi-Scheme, TinyScheme are designed
+implementations exist. One of the uses is as an extension language embedded in
+other program. Implementations such as Chibi-Scheme and TinyScheme are designed
 with use as an extension language in mind. On the other hand, there are Scheme
 implementations used for more expensive computations. This kind of Scheme
 implementations typically compiles to native code before executing. The
@@ -132,14 +133,14 @@ Larceny~\cite{hansen1992impact}, or in a mixture of AOT and JIT compilation,
 such as in Pycket~\cite{bauman2015pycket}, and Racket~\cite{flatt2013racket}.
 
 There exist a performance gap between Scheme implementations which does native
-code compilation, and implementations which doesn't. Tracing JIT compilation is
-a technique used in VM to improve performance by compiling the frequently
-executed instruction code paths. Dynamo~\cite{bala2000dynamo} has pioneered the
-use of tracing JIT by tracing native code. Later the technique was used in
-various VMs for dynamic programming language to achieve performance
-improvement. Languages such as Lua~\cite{pall2016luajit},
-JavaScript~\cite{gal2009trace}, and Python~\cite{bolz2009tracing} have made
-success with VMs which implement tracing JIT.\@
+code compilation and which doesn't. Tracing JIT compilation is a technique used
+in VM to improve performance by compiling the frequently executed instruction
+code paths. Dynamo~\cite{bala2000dynamo} has pioneered the use of tracing JIT by
+tracing native code. Later the technique was used in various VMs for dynamic
+programming language to achieve performance improvement. Languages such as
+Lua~\cite{pall2016luajit}, JavaScript~\cite{gal2009trace}, and
+Python~\cite{bolz2009tracing} have made success with VMs which implement tracing
+JIT.\@
 
 \textit{Nash} is a new tracing JIT VM for GNU Guile. Guile is a general-purpose
 Scheme implementation which could be used as an extension language, as a
@@ -147,8 +148,8 @@ scripting engine, and for application development. Guile offers
 \textit{libguile} to allow itself to be embedded in other program. GnuCash,
 gEDA, GNU Make, and GDB uses Guile as an extension language. Guile implements
 standard R5RS~\cite{abelson1998revised5}, most of
-R6RS~\cite{sperber2010revised}, several SRFIs, and many extension of its own,
-including delimited continuation and native POSIX thread
+R6RS~\cite{sperber2010revised}, several SRFIs, and many extensions of its own,
+including delimited continuations and native POSIX thread
 support~\cite{Galassi02guilereference}. Nash is designed to be a drop-in
 replacement for Guile's existing VM, which is called \textit{VM-regular} in this
 paper, to achieve performance improvement.
@@ -183,10 +184,11 @@ incremented \texttt{i} until \texttt{i} is greater than the
 compiled to bytecode before the execution.\footnote{In most case, source codes
   are byte-compiled before executed. Guile can run Scheme source code without
   compiling so that trivial computations could be done quickly.}
+
 Section~\hyperref[sec:background]{\ref{sec:background}} briefly mentions some
-background of Guile. When Nash execute \texttt{sumv-positive}, the computation
-starts with bytecode interpreter. After executing the bytecode for a while, the
-bytecode interpreter detects a hot loop in the body of
+background of Guile. When Nash executes \texttt{sumv-positive}, the computation
+starts with bytecode interpretation. After executing the bytecode for a while,
+the bytecode interpreter detects a hot loop in the body of
 \texttt{sumv-positive}. Then the bytecode interpreter switches its state, start
 recording the bytecode instructions of the loop, and corresponding stack values
 for the instructions. Recording of instructions are described in
@@ -195,7 +197,7 @@ interpreter reached to the beginning of the observed loop, recorded data are
 passed to JIT compiler. The JIT compiler is written in Scheme, executed with
 VM-regular. The compiler uses recorded bytecode and stack values to emit
 optimized native code. The variables from the stack are used to specify types,
-possibly emitting \textit{guards} to exit from the compiled native code. More
+possibly emitting \textit{guards} to exit from the compiled native code. More of
 the JIT compiler internals are covered in
 Section~\hyperref[sec:compiler]{\ref{sec:compiler}}.
 
@@ -211,8 +213,7 @@ Section~\hyperref[sec:conclusion]{\ref{sec:conclusion}} concludes this paper.
 \label{sec:background}
 
 This section describes background information and brief history of tracing JIT
-and GNU Guile. Some of the Guile internals which relates to Nash are
-mentioned.
+and GNU Guile. Some of the Guile internals which relate to Nash are mentioned.
 
 \subsection{Tracing JIT}
 Tracing JIT is one of JIT compilation styles~\cite{bolz2009tracing} which
@@ -225,32 +226,32 @@ assumes that:
 \end{itemize}
 
 After Dynamo~\cite{bala2000dynamo} used the technique to trace native code,
-various development has been done in the area. LuaJIT is one of the successive
+various development has been done in the area. LuaJIT is one of the successful
 implementation of tracing JIT VM for the Lua~\cite{ierusalimschy1996lua}
 programming language. Pypy~\cite{bolz2009tracing} is a tracing JIT VM for the
 Python programming language. Pypy is implemented with
 RPython~\cite{bolz2009tracing} framework, which is a \textit{meta-tracing}
 infrastructure to develop a tracing JIT VM by defining an interpreter of the
 target language. The framework was adapted to other language than Python,
-including Pycket~\citep{bauman2015pycket}, a tracing JIT VM for Racket language,
-and Pixie, a tracing JIT VM for Pixie language, which is a dialect of Lisp.
+including Pycket~\citep{bauman2015pycket}, a tracing JIT VM for Racket, and
+Pixie, a tracing JIT VM for the Pixie language, which is a dialect of Lisp.
 
 Typical settings for tracing JIT of dynamic programming language contains an
-interpreter and a JIT compiler. Interpreter observes the execution of
+interpreter and a JIT compiler. The interpreter observes the execution of
 instructions, detects hot loops, and records frequently executed
 instructions. The recorded instructions are often called \textit{trace}. JIT
 compiler then compiles the trace to get optimized native code of the hot
 loop. The interpreter typically has a functionality to switch between a phase
-for observing the loop, a phase for recording the instructions, and a phase
+for observing the loop, a phase for recording the instructions, and a phase for
 executing the compiled native code.  Compiled native code contains
 \textit{guards} to terminate the execution of native code, and bring the control
 of program back to the interpreter. Guards are inserted when recorded trace
 contains conditions which might not satisfied in later iteration of the
 loop. For instance, the loop in Figure~\hyperref[fig:scmloop]{\ref{fig:scmloop}}
 will emit a guard which compares the value of \texttt{i} with length of the
-vector. In dynamic programming language such as Scheme, guard for type check may
-inserted as well, since compiler could generate more optimized native code when
-the types of the values are known at compilation time.
+vector. In dynamic programming languages such as Scheme, guards for type check
+may be inserted as well, since compiler could generate more optimized native
+code when the types of the values are known at compilation time.
 
 \subsection{GNU Guile}
 \label{sec:backgroundguile}
@@ -305,12 +306,12 @@ value belongs to immediates or heap objects. Table
 objects. When tc3 tag was \texttt{000}, the value belongs to heap objects. All
 the other values of tc3 tag are immediates, though some of the tag values are
 unused. For instance, tc3 tag \texttt{010} and \texttt{110} are used for small
-integer. For small integer, only the first two bits are used to identify the
-type, the rest of the bits are used to contain the integer value. For instance,
-Scheme value $0$ is SCM $00000010$, Scheme value $1$ is SCM $00000110$, Scheme
-value 2 is SCM $00001010$, and so on. Types of various heap object are decided
-by using the rest of \texttt{SCM} value, possibly referencing the address
-derived from non-tc3 tag value in \texttt{SCM}.
+integers, and only the first two bits are used to identify the type, the rest of
+the bits are used to contain the integer value. For instance, Scheme value $0$
+is SCM $00000010$, Scheme value $1$ is SCM $00000110$, Scheme value 2 is SCM
+$00001010$, and so on. Types of various heap object are decided by using the
+rest of \texttt{SCM} value, possibly referencing the address derived from
+non-tc3 tag value in \texttt{SCM}.
 
 \subsubsection{Bytecode Compiler}
 
@@ -363,8 +364,8 @@ consists from several compilers defining tower of languages. Each step of the
 compilation sequence knows how to compile down to the step below, until the
 compiled output turns into bytecode instruction set executed by the VM.\@
 
-In Guile version 2.1.2, Scheme input program is first translated to a program in
-\textit{tree-il} language, an internal representation used by Guile. Then
+In Guile version 2.1.2, Scheme input programs are first translated to a program
+in \textit{tree-il} language, an internal representation used by Guile. Then
 resulting tree-il program is compiled to \textit{cps}, which is another internal
 representation, then the resulting cps code is translated to bytecode. Guile
 contains compilers for Emacs-Lisp and Ecmascript, which compiles to
@@ -440,7 +441,7 @@ VM_NAME (scm_i_thread *thread, struct scm_vm *vp,
 \label{fig:vmnameorig}
 \end{figure}
 
-Guile uses C function to interpret compiled bytecode. This C function is called
+Guile uses C functions to interpret compiled bytecode. This C function is called
 \textit{VM engine} in Guile. VM engine is defined in a dedicated file named
 \texttt{vm-engine.c}, which is included multiple times from other source
 code. Figure~\hyperref[fig:vmnameorig]{\ref{fig:vmnameorig}} shows the snippets
@@ -453,7 +454,7 @@ before a procedure call, before returning values, and before executing each
 bytecode instruction. The invocation of hooks are disabled in
 \texttt{vm-regular-engine} for performance reason. When including
 \texttt{vm-engine.c}, \texttt{VM\_NAME} is defined with different
-literal.\ i.e.: Some C codes resembling below are written in other file than
+literal.\ i.e.: The following C code is written in other file than
 \texttt{vm-engine.c}:
 
 \begin{verbatim}
@@ -523,8 +524,11 @@ remove unnecessary tagging and untagging of SCM values.
 
 \subsection{Nash Overview}
 
-Nash is designed as a drop-in replacement of VM-regular, could be used to run a
-script, has REPL, and could be embedded in a C program as extension
+% XXX: The sentence ``The bytecode of compiler interpreted by'' was not
+% understood by reviewer 2.
+
+Nash is designed as a drop-in replacement of VM-regular, could be used to run
+scripts, has REPL, and could be embedded in a C program as extension
 language. Figure~\hyperref[fig:overview]{\ref{fig:overview}} contains a diagram
 showing which software components are written as C function, compiled bytecode,
 or JIT compiled native code. C function \texttt{vm\_nash\_engine} is the
@@ -780,7 +784,7 @@ temporal use only.
 \subsubsection{Snapshot}
 
 Between recorded bytecode instructions, \texttt{\%snap} expressions may inserted
-to make \textit{snapshot} data. Snapshot contains various information to recover
+to make \textit{snapshot} data. Snapshots contain various information to recover
 the state of \texttt{vm\_nash\_engine} when native code passed the control
 back. Snapshot data includes local indices to store variables, and a bytecode IP
 where the interpretation continue. The expression \texttt{\%snap} takes variable
@@ -819,7 +823,7 @@ Section~\ref{sec:scmdatatype}, of each value is observed and type check for the
 locals are added when necessary. For instance, in the line containing
 \texttt{(add~1~1~6)} in Figure \hyperref[fig:trace]{\ref{fig:trace}}, the second
 element in the stack is \texttt{\#x2a2}, which is \texttt{1010100010} in
-binary. Nash could decide this value as a small integer, since it has tc3 tag
+binary. Nash could decide this value is a small integer, since it has tc3 tag
 \texttt{010}.
 
 The value \texttt{\#f} in \texttt{\%sref} primitive means that there is no need
@@ -1008,10 +1012,10 @@ under x86-64 architecture. The native code contains a mark to show the beginning
 of loop body with \texttt{loop:}, and corresponding snapshot ID number for jump
 instructions.
 
-Native code compiled in Nash contains debug symbol to interact with JIT
+Native code compiled in Nash contains debug symbols to interact with JIT
 compilation interface in GDB~\cite{stallman2002debugging}, a well-known
-open-source debugger. This debugging support is turned off by default, turned on
-by passing command line option when invoking \texttt{guile} executable.
+open-source debugger. This debugging support is turned off by default, but can
+be turned on with command line option when invoking \texttt{guile} executable.
 \footnote{Other than debug symbol, Nash contains a command line option to dump
   intermediate data used during compilation. Contents of
   Figure~\hyperref[fig:anf]{\ref{fig:trace}}, \hyperref[fig:anf]{\ref{fig:anf}},
@@ -1098,8 +1102,8 @@ Pycket.
 Some of the benchmarks performed worse than Guile's VM-regular. Benchmark
 \texttt{parsing} and \texttt{dynamic} contain program to parse a Scheme source
 code. These programs include lots of branching conditions. The \texttt{parsing}
-and \texttt{dynamic} performed approximately $1.9\times$ and $4.5\times$ slower
-than VM-regular, respectively.
+and \texttt{dynamic} performed $1.9\times$ and $4.5\times$ slower than
+VM-regular, respectively.
 
 \section{Related Work}
 \label{sec:related}
@@ -1117,18 +1121,18 @@ approach used in interpreter written with RPython.
 %% writing a compiler.
 
 Use of A-normal form~\cite{flanagan1993essence} was inspired from
-Pycket~\cite{bauman2015pycket}. Though Pycket expand the source code and
+Pycket~\cite{bauman2015pycket}. Though Pycket expands the source code and
 generates JSON data, and parses it to AST for execution. Both Nash and Pycket
-use tracing JIT in its implementation. Both performed well with benchmarks
+use tracing JIT in its implementation. Both performed well on benchmarks
 containing tight loop, such as \texttt{sumfp}, \texttt{sum}, and
 \texttt{sumloop}. Pycket performed better than Nash. From
 Table~\hyperref[tab:bench]{\ref{tab:bench}}, Pycket performed well with
 benchmark containing extensive use of \texttt{call/cc}, such as \texttt{fibc}
 and \texttt{ctak}. Nash implements \texttt{call/cc} with C stack, to keep
-compatibility with C interface of libguile, which did not led to performance
+compatibility with C interface of libguile, which did not lead to performance
 improvement. Both performed bad in benchmarks containing lots of condition
-branches, such as \texttt{paraffins} and \texttt{dynamic}. Nash performed bad in
-\texttt{parsing} benchmark also, but the performance of \texttt{parsing} in
+branches, such as \texttt{paraffins} and \texttt{dynamic}. Nash performed badly
+in \texttt{parsing} benchmark also, but the performance of \texttt{parsing} in
 Pycket was close to Racket.
 
 Design of snapshot was inspired from LuaJIT~\cite{pall2009ip}. LuaJIT uses more
@@ -1149,7 +1153,7 @@ instructions which are not implemented at all, such as \texttt{prompt} and
 \texttt{abort} used for delimited continuation, or partially implemented, such
 as arithmetic operations. Arithmetic operations for multi-precision numbers and
 complex numbers are not yet implemented. When JIT compiler encountered
-unsupported bytecode, the abort the work and fall backs to
+unsupported bytecode, it aborts the work and falls back to
 \texttt{vm\_nash\_engine}.
 
 \paragraph{Detect more loops} Nash detects loops with backward jump,
@@ -1197,7 +1201,7 @@ native compiler in several of the benchmarks.
 %% This is the text of the appendix, if you need one.
 
 %% \acks{} Acknowledgments, if needed.
-\acks{} Nash exist because of the hard works done for GNU Guile by many open
+\acks{} Nash exists because of the hard works done for GNU Guile by many open
 source developers.
 
 % We recommend abbrvnat bibliography style.
