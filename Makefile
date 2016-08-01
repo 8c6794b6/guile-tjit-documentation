@@ -1,4 +1,4 @@
-base=guile-tjit
+base=nash
 
 .PHONY: all clean
 

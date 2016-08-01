@@ -68,13 +68,13 @@
 
 % These are ignored unless 'preprint' option specified.
 \titlebanner{DRAFT}
-\preprintfooter{DRAFT --- Nash: a tracing JIT for Extension Language}
+\preprintfooter{DRAFT --- Nash: a tracing JIT for extension language}
 
 \title{Nash: A Tracing JIT For Extension Language}
 %% \subtitle{Subtitle Text, if any}
 
 \authorinfo{Atsuro Hoshino}
-           {Individual Software Engineer}
+           {}
            {hoshinoatsuro@gmail.com}
 %% \authorinfo{Name2\and Name3}
 %%            {Affiliation2/3}
@@ -84,17 +84,19 @@
 
 \begin{abstract}
 
-This paper introduces \textit{Nash}, a \textit{virtual machine} (VM) for GNU
-Guile with tracing \textit{just-in-time} (JIT) compiler. Nash is designed as a
-drop-in replacement for Guile's existing VM.\@ Nash could be used for running
-script, interacted with REPL, and embedded in other programs. Design of Nash
-internal is discussed, including VM interpreter which records frequently
-executed instructions found in Guile's bytecode, and JIT compiler which emits
-native code from recorded instructions. Nash coexists with Guile's existing
-VM.\@ Lots of Guile's features, such as bytecode interpreter, are reused in
-Nash. When conditions were met, Nash runs more than \textit{$40\times$ faster}
-than Guile's existing VM, without modifying the input program. Benchmark results
-of Nash are shown, including comparisons with other Scheme implementations.
+This paper introduces \textit{Nash}\footnote{\textbf{N}ative code
+  \textbf{AS}sembler for \textbf{H}ot instructions.}, a \textit{virtual
+  machine} (VM) for GNU Guile with tracing \textit{just-in-time} (JIT)
+compiler. Nash is designed as a drop-in replacement for Guile's existing VM.\@
+Nash could be used for running script, interacted with REPL, and embedded in
+other programs. Design of Nash internal is discussed, including VM interpreter
+which records frequently executed instructions found in Guile's bytecode, and
+JIT compiler which emits native code from recorded instructions. Nash coexists
+with Guile's existing VM.\@ Lots of Guile's features, such as bytecode
+interpreter, are reused in Nash. When conditions were met, Nash runs more than
+\textit{$40\times$ faster} than Guile's existing VM, without modifying the input
+program. Benchmark results of Nash are shown, including comparisons with other
+Scheme implementations.
 
 
 %% Guile contains bytecode
@@ -719,12 +721,12 @@ recording. \texttt{VM\_NASH\_MERGE} is defined with empty body when including
 \begin{verbatim}
      1	(lambda ()
      2    (let* ((_    (%snap 0))
-     3           (v0   (%fref 0 #f))
-     4           (v1   (%fref 1 1))
-     5           (v3   (%fref 3 67108864))
-     6           (v4   (%fref 4 67108864))
-     7           (v5   (%fref 5 131072))
-     8           (v6   (%fref 6 67108864)))
+     3           (v0   (%sref 0 #f))
+     4           (v1   (%sref 1 1))
+     5           (v3   (%sref 3 67108864))
+     6           (v4   (%sref 4 67108864))
+     7           (v5   (%sref 5 131072))
+     8           (v6   (%sref 6 67108864)))
      9      (loop v0 v1 v3 v4 v5 v6)))
     10	(lambda (v0 v1 v3 v4 v5 v6)
     11    (let* ((v0   (%add v6 1))
@@ -802,8 +804,8 @@ continues with bytecode interpreter.
 
 The prologue section, the first \texttt{lambda} block shown in
 Figure~\hyperref[fig:anf]{\ref{fig:anf}}, loads initial values from the stack
-with \texttt{\%fref} primitive. The first argument number passed to
-\texttt{\%fref} is a local index offset, the second argument is an integer used
+with \texttt{\%sref} primitive. The first argument number passed to
+\texttt{\%sref} is a local index offset, the second argument is an integer used
 internally to represent the type of expected local in the stack. For instance,
 the value \texttt{1} is for \texttt{fixnum}, which means small integer value in
 Scheme, \texttt{131072} is used for vector object, \texttt{67108864} is for
@@ -820,7 +822,7 @@ element in the stack is \texttt{\#x2a2}, which is \texttt{1010100010} in
 binary. Nash could decide this value as a small integer, since it has tc3 tag
 \texttt{010}.
 
-The value \texttt{\#f} in \texttt{\%fref} primitive means that there is no need
+The value \texttt{\#f} in \texttt{\%sref} primitive means that there is no need
 for type check, for instance the local is overwritten without referencing. The
 variable \texttt{v0}, which hold local \texttt{0} in above example is
 immediately overwritten by result of \texttt{\%add} primitive with the first
@@ -913,12 +915,12 @@ destination of \texttt{(br-if-u64-<=~4~0~\#f~9)} in recorded trace.
   \small
 \begin{verbatim}
 ----     [snap  0] ()
-0001     (%fref    r14 +0 ---)
-0002     (%fref    r15 +1 fixn)
-0003     (%fref    r9 +3 u64)
-0004     (%fref    r8 +4 u64)
-0005     (%fref    rcx +5 vect)
-0006     (%fref    rdx +6 u64)
+0001     (%sref    r14 +0 ---)
+0002     (%sref    r15 +1 fixn)
+0003     (%sref    r9 +3 u64)
+0004     (%sref    r8 +4 u64)
+0005     (%sref    rcx +5 vect)
+0006     (%sref    rdx +6 u64)
 ==== loop:
 0007     (%add     r14 rdx +1)
 ----     [snap  1] ((0 u64) (1 fixn) (6 u64))
@@ -1210,7 +1212,7 @@ source developers.
 %% \end{thebibliography}
 
 % Using .bib file at the moment.
-\bibliography{guile-tjit}
+\bibliography{nash}
 
 \end{document}
 
