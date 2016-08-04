@@ -14,6 +14,9 @@
              (srfi srfi-9)
              (srfi srfi-9 gnu))
 
+
+;;;; Data types
+
 ;; Record type to represent single line of benchmark data.
 (define-record-type <line-data>
   (make-line-data datetime elapsed unit computation name vm suite
@@ -30,6 +33,13 @@
   (n2 line-data-n2)
   (specialize line-data-specialize))
 
+(define-record-type <normalized>
+  (make-normalized name product times)
+  normalized?
+  (name normalized-name)
+  (product normalized-product set-normalized-product!)
+  (times normalized-times set-normalized-times!))
+
 (define-record-type <z>
   (make-z name score elapsed)
   z?
@@ -45,6 +55,27 @@
   (mean standard-score-mean)
   (sigma standard-score-sigma)
   (scores standard-score-scores))
+
+
+;;;; Constants
+
+(define native-code-compilers
+  '(Bigloo Chez Chicken Gambit GuileTjit Ikarus Larceny MIT Pycket Racket))
+
+(define byte-code-compilers
+  '(Gauche Kawa RacketNoJit Sagittarius))
+
+(define interpreters
+  '(GuileInterp))
+
+(define all-implementations
+  (append native-code-compilers byte-code-compilers interpreters))
+
+(define ignored-benchmarks
+  '(slatex))
+
+
+;;;; Parser
 
 (define (parse-file path)
   "Make list of <line-data> from file PATH."
@@ -82,15 +113,8 @@
             (let ((line-data (parse-line (car line))))
               (lp (%read-line port) (cons line-data acc))))))))
 
-;; List of ignored tests.
-(define ignored
-  '(slatex))
-
-(define (*-if-true a b)
-  (if b (* a b) a))
-
-(define native-code-compilers
-  '(Bigloo Chez Chicken Gambit GuileTjit Larceny MIT Pycket Racket))
+
+;;;; Analysis
 
 (define (add-geometric-standard-score! tbl name results)
   (let* ((valid-results (filter (lambda (x) x) results))
@@ -121,28 +145,6 @@
           (make-standard-score name n gmean (exp log-sigma) z-scores)))
     (hashq-set! tbl name standard-score)))
 
-(define (print-standard-scores standard-scores)
-  (define (find-tjit-score scores)
-    (z-score (find (lambda (z)
-                     (eq? 'GuileTjit (z-name z)))
-                   (standard-score-scores scores))))
-  (for-each
-   (match-lambda
-     ((name . ($ <standard-score> name n mean sigma scores))
-      (format #t "~s: n=~s gmean=~5,3f gsd=~5,3f~%" name n mean sigma)
-      (for-each
-       (match-lambda
-         (($ <z> name z elapsed)
-          (format #t "~12@s: ~5,3@f (~7,2f ms)~%" name z elapsed)))
-       (sort scores (lambda (a b)
-                      (< (z-score a) (z-score b)))))))
-   (sort (hash-map->list cons standard-scores)
-         (lambda (a b)
-           (match (cons a b)
-             (((_ . a-scores) . (_ . b-scores))
-              (< (find-tjit-score a-scores)
-                 (find-tjit-score b-scores))))))))
-
 (define (summarize line-datas numeric-sort?)
   "Summarize LINE-DATAS.
 
@@ -150,171 +152,214 @@ Shows results normalized to vm-regular for each benchmark, and geometric
 mean of all benchmarks. Sorts results numerically if NUMERIC-SORT? is
 true, otherwise sorts alphabetically by benchmark name."
   (let ((names (delete-duplicates! (map line-data-name line-datas)))
-        (counts (make-hash-table))
+        (products (make-hash-table))
         (missings (make-hash-table))
         (standard-scores (make-hash-table)))
-    (define (increment-count! line-data)
-      (let* ((name (line-data-vm line-data))
-             (current (hashq-ref counts name))
-             (next (or (and current (+ current 1)) 1)))
-        (hashq-set! counts name next)))
+    (define (update-normalized! vm-name bench-name normalized)
+      (let ((current (hashq-ref products vm-name #f)))
+        (if current
+            (begin
+              (set-normalized-product! current
+                                       (* (normalized-product current)
+                                          normalized))
+              (set-normalized-times! current
+                                     (cons (cons bench-name normalized)
+                                           (normalized-times current))))
+            (hashq-set! products vm-name
+                        (make-normalized vm-name normalized
+                                         (list (cons bench-name
+                                                     normalized)))))))
     (define (add-missing! vm-name bench-name)
       (let* ((old (hashq-ref missings vm-name))
              (new (if old (cons bench-name old) (list bench-name))))
         (hashq-set! missings vm-name new)))
-    (let lp ((names names) (acc '())
-             (ntjit 1.0) (nbigloo 1.0) (nchez 1.0) (nchicken 1.0)
-             (ngambit 1.0) (ngauche 1.0) (ninterp 1.0) (nlarceny 1.0)
-             (nmit 1.0) (npycket 1.0) (nracket 1.0) (nracketj 1.0)
-             (nsagittarius 1.0))
+    (define (format-gm name)
+      (let* ((normalized (hashq-ref products name))
+             (p (normalized-product normalized))
+             (n (length (normalized-times normalized)))
+             (gm (expt p (/ 1 n))))
+        (format #t "~16@s: ~6,3f (~s benchmarks" name gm n)
+        (let ((missing-results (hashq-ref missings name)))
+          (when missing-results
+            (format #t ", missing: ~{~a~^, ~}" missing-results)))
+        (display ")")
+        (newline)))
+    (let lp ((names names) (acc '()))
       (match names
         ((name . names)
          (let ((total-elapsed-datas
                 (filter
                  (lambda (line-data)
                    (and (eq? name (line-data-name line-data))
-                        (not (memq name ignored))
+                        (not (memq name ignored-benchmarks))
                         (eq? 'total (line-data-computation line-data))))
                  line-datas)))
            (define (data-by-vm vm)
              (find (lambda (data)
                      (eq? vm (line-data-vm data)))
                    total-elapsed-datas))
+           (define (update-one! regular vm-name)
+             (let ((vm (data-by-vm vm-name)))
+               (if (and vm regular)
+                   (let ((n (/ (line-data-elapsed vm)
+                               (line-data-elapsed regular))))
+                     (update-normalized! vm-name name n))
+                   (add-missing! vm-name name))))
            (match total-elapsed-datas
              ((? pair?)
               (let* ((regular (data-by-vm 'Guile))
-                     (normalize
-                      (lambda (vm-name)
-                        (let ((vm (data-by-vm vm-name)))
-                          (if (and vm regular)
-                              (begin
-                                (increment-count! vm)
-                                (/ (line-data-elapsed vm)
-                                   (line-data-elapsed regular)))
-                              (begin
-                                (add-missing! vm-name name)
-                                #f)))))
-                     (normalized-tjit (normalize 'GuileTjit))
-                     (normalized-bigloo (normalize 'Bigloo))
-                     (normalized-chez (normalize 'Chez))
-                     (normalized-chicken (normalize 'Chicken))
-                     (normalized-gambit (normalize 'Gambit))
-                     (normalized-gauche (normalize 'Gauche))
-                     (normalized-interp (normalize 'GuileInterp))
-                     (normalized-larceny (normalize 'Larceny))
-                     (normalized-mit (normalize 'MIT))
-                     (normalized-pycket (normalize 'Pycket))
-                     (normalized-racket (normalize 'Racket))
-                     (normalized-racketj (normalize 'RacketNoJit))
-                     (normalized-sagittarius (normalize 'Sagittarius))
                      (vms (map data-by-vm native-code-compilers)))
-                ;; (add-standard-score! standard-scores name vms)
+                (for-each (lambda (impl)
+                            (update-one! regular impl))
+                          all-implementations)
                 (add-geometric-standard-score! standard-scores name vms)
-                (lp names
-                    (cons (list name
-                                normalized-tjit
-                                normalized-chez
-                                normalized-racket
-                                normalized-pycket)
-                          acc)
-                    (*-if-true ntjit normalized-tjit)
-                    (*-if-true nbigloo normalized-bigloo)
-                    (*-if-true nchez normalized-chez)
-                    (*-if-true nchicken normalized-chicken)
-                    (*-if-true ngambit normalized-gambit)
-                    (*-if-true ngauche normalized-gauche)
-                    (*-if-true ninterp normalized-interp)
-                    (*-if-true nlarceny normalized-larceny)
-                    (*-if-true nmit normalized-mit)
-                    (*-if-true npycket normalized-pycket)
-                    (*-if-true nracket normalized-racket)
-                    (*-if-true nracketj normalized-racketj)
-                    (*-if-true nsagittarius normalized-sagittarius))))
+                (lp names (cons name acc))))
              (_
               (format #t "Skipping `~s'~%" name)
-              (lp names acc ntjit nbigloo nchez nchicken ngambit ngauche
-                  ninterp nlarceny nmit npycket nracket nracketj
-                  nsagittarius)))))
+              (lp names acc)))))
         (_
-         (define gm-by-name
-           (lambda (name product)
-             (let ((gm (expt product (/ 1 (hashq-ref counts name 1)))))
-               gm)))
-         (format #t "Standard scores of native code compilers:~%")
+         (format #t "Geometric standard scores of native code compilers:~%")
          (print-standard-scores standard-scores)
-         (let ((acc (sort acc
-                          (if numeric-sort?
-                              (lambda (a b)
-                                (< (cadr a) (cadr b)))
-                              (lambda (a b)
-                                (string<= (symbol->string (car a))
-                                          (symbol->string (car b)))))))
+         (format #t "Geometric means normalized to vm-regular~%")
+         (format #t "  Interpreters:~%")
+         (format-gm 'GuileInterp)
+         (format #t "  Byte code compilers:~%")
+         ;; (format-gm 'Guile)
+         (format-gm 'Gauche)
+         (format-gm 'Sagittarius)
+         (format-gm 'RacketNoJit)
+         (format #t "  Native code compilers:~%")
+         (format-gm 'Chez)
+         (format-gm 'Bigloo)
+         (format-gm 'Ikarus)
+         (format-gm 'Pycket)
+         (format-gm 'Gambit)
+         (format-gm 'Larceny)
+         (format-gm 'Racket)
+         (format-gm 'GuileTjit)
+         (format-gm 'Chicken)
+         (format-gm 'MIT)
+         (values products missings standard-scores))))))
 
-               (format-gm
-                (lambda (name gm)
-                  (format #t "~16@s: ~6,3f (~s benchmarks"
-                          name gm (hashq-ref counts name))
-                  (let ((missing-results (hashq-ref missings name)))
-                    (when missing-results
-                      (format #t ", missing: ~{~a~^, ~}" missing-results)))
-                  (display ")")
-                  (newline)))
-               (gm-tjit (gm-by-name 'GuileTjit ntjit))
-               (gm-bigloo (gm-by-name 'Bigloo nbigloo))
-               (gm-chez (gm-by-name 'Chez nchez))
-               (gm-chicken (gm-by-name 'Chicken nchicken))
-               (gm-gambit (gm-by-name 'Gambit ngambit))
-               (gm-gauche (gm-by-name 'Gauche ngauche))
-               (gm-interp (gm-by-name 'GuileInterp ninterp))
-               (gm-racket (gm-by-name 'Racket nracket))
-               (gm-racketj (gm-by-name 'RacketNoJit nracketj))
-               (gm-larceny (gm-by-name 'Larceny nlarceny))
-               (gm-mit (gm-by-name 'MIT nmit))
-               (gm-pycket (gm-by-name 'Pycket npycket))
-               (gm-sagittarius (gm-by-name 'Sagittarius nsagittarius)))
-           ;; (format #t "~:{~12@s: ~5,3f ~5,3f ~5,3f ~5,3f~%~}" acc)
-           (call-with-output-file "gm2.dat"
-             (lambda (port)
-               (format port "~18s ~5s ~5s ~5s ~5s~%"
-                       'Benchmark 'Tjit 'Chez 'Racket 'Pycket)
-               ;; (format port "~:{~18s ~5,3f ~5,3f ~5,3f ~5,3f~%~}" acc)
-               ))
-           (call-with-output-file "gm2-mean.dat"
-             (lambda (port)
-               (format port "~18s ~5s ~5s ~5s ~5s~%"
-                       'Benchmark 'Tjit 'Chez 'Racket 'Pycket)
-               ;; (format port "~18s ~5,3f ~5,3f ~5,3f ~5,3f~%"
-               ;;         "geometric\nmean"
-               ;;         gm-tjit gm-chez gm-racket gm-pycket)
-               ))
-           (hashq-set! counts 'Guile (hashq-ref counts 'GuileTjit))
-           (format #t "Geometric means normalized to vm-regular~%")
-           (format #t "  Interpreter without compilation~%")
-           (format-gm 'GuileInterp gm-interp)
-           (format #t "  Byte code compilers~%")
-           (format-gm 'Guile 1.0)
-           (format-gm 'Gauche gm-gauche)
-           (format-gm 'Sagittarius gm-sagittarius)
-           (format-gm 'RacketNoJit gm-racketj)
-           (format #t "  Native code compilers~%")
-           (format-gm 'Chez gm-chez)
-           (format-gm 'Bigloo gm-bigloo)
-           (format-gm 'Pycket gm-pycket)
-           (format-gm 'Gambit gm-gambit)
-           (format-gm 'Larceny gm-larceny)
-           (format-gm 'Racket gm-racket)
-           (format-gm 'GuileTjit gm-tjit)
-           (format-gm 'Chicken gm-chicken)
-           (format-gm 'MIT gm-mit)))))))
+
+;;;; Printer
 
-(define (show-usage)
-  (display "USAGE: gm2.scm [OPTIONS] FILE
+(define (print-standard-scores standard-scores)
+  (for-each
+   (match-lambda
+     ((name . ($ <standard-score> name n mean sigma scores))
+      (format #t "~s: n=~s gmean=~5,3f gsd=~5,3f~%" name n mean sigma)
+      (for-each
+       (match-lambda
+         (($ <z> name score elapsed)
+          (format #t "~12@s: ~5,3@f (~7,2f ms)~%" name score elapsed)))
+       (sort scores (lambda (a b)
+                      (< (z-score a) (z-score b)))))))
+   (sort (hash-map->list cons standard-scores) compare-tjit-scores)))
+
+(define (find-score-by-name impl scores)
+  (z-score
+   (find (lambda (z)
+           (eq? impl (z-name z)))
+         (standard-score-scores scores))))
+
+(define (find-tjit-score scores)
+  (find-score-by-name 'GuileTjit scores))
+
+(define (find-pycket-score scores)
+  (find-score-by-name 'Pycket scores))
+
+(define (compare-tjit-scores a b)
+  (match (cons a b)
+    (((_ . a-scores) . (_ . b-scores))
+     (< (find-tjit-score a-scores)
+        (find-tjit-score b-scores)))))
+
+(define (find-z-score impl scores)
+  (let lp ((scores scores))
+    (match scores
+      ((score . scores)
+       (if (eq? impl (z-name score))
+           score
+           (lp scores)))
+      (_ #f))))
+
+(define (print-tex-table products missings standard-scores)
+  (call-with-output-file "tmp.tex"
+    (lambda (port)
+      (format port "\\begin{tabular}{rccccccccccc}~%")
+      (format port "\\toprule~%")
+      (format port "Name & gmean/GSD & ~{~a~^ & ~} \\\\~%" native-code-compilers)
+      (format port "\\midrule~%")
+      (for-each
+       (lambda (bench-name)
+         (match (hashq-ref standard-scores bench-name)
+           (($ <standard-score> name n mean sigma scores)
+            (format port "~a & ~4,2f / ~4,2f & ~{~a~^ & ~} \\\\~%"
+                    name mean sigma
+                    (map (lambda (impl)
+                           (let ((z (find-z-score impl scores)))
+                             (if z
+                                 (format #f "~4,2@f" (z-score z))
+                                 'N/A)))
+                         native-code-compilers)))))
+       '(sumfp mbrot dderiv parsing))
+      (format port "\\bottomrule~%")
+      (format port "\\end{tabular}~%"))))
+
+(define (print-distribution-plot-data standard-scores)
+  (let* ((scores (hash-map->list cons standard-scores))
+         (scores (sort scores compare-tjit-scores))
+         (bench-names (map car scores))
+         ;; (bench-names '(sumfp
+         ;;                mbrot array1 bv2string sum sumloop
+         ;;                fibfp simplex nucleic
+         ;;                peval dynamic
+         ;;                paraffins maze matrix graphs lattice conform
+         ;;                ))
+         )
+    (call-with-output-file "tmp.dat"
+      (lambda (port)
+        (format port "# ~{~a ~}~%" bench-names)
+        (do ((impls native-code-compilers (cdr impls)))
+            ((null? impls))
+          (let ((impl (car impls)))
+            (do ((bench-names bench-names (cdr bench-names)))
+                ((null? bench-names))
+              (let ((bench-name (car bench-names)))
+                (match (hashq-ref standard-scores bench-name)
+                  (($ <standard-score> name n mean sigma scores)
+                   (let ((z (find-z-score impl scores)))
+                     (format port "~a " (if z (z-score z) 'n/a))))
+                  (_ (values)))))
+            (newline port)))))
+    (call-with-output-file "tmp2.dat"
+      (lambda (port)
+        (format port "n/a~%~{~a~%~}"
+                (map (lambda (bench-name)
+                       (let ((std-score
+                              (hashq-ref standard-scores bench-name)))
+                         (find-tjit-score std-score)))
+                     bench-names))))
+    (call-with-output-file "tmp3.dat"
+      (lambda (port)
+        (format port "n/a~%~{~a~%~}"
+                (map (lambda (bench-name)
+                       (let ((std-score
+                              (hashq-ref standard-scores bench-name)))
+                         (find-pycket-score std-score)))
+                     bench-names))))))
+
+
+;;;; Main
+
+(define (main args)
+  (define (display-usage)
+    (display "USAGE: gm2.scm [OPTIONS] FILE
 
 OPTIONS:
   -n : sort numerically by normalized result.
 "))
-
-(define (main args)
   (let* ((grammer `((nsort (required? #f)
                            (value #f)
                            (single-char #\n))))
@@ -322,5 +367,11 @@ OPTIONS:
          (nsort (option-ref opts 'nsort #f))
          (result-file-path (option-ref opts '() #f)))
     (match result-file-path
-      ((path) (summarize (parse-file path) nsort))
-      (_      (show-usage)))))
+      ((path)
+       (call-with-values
+           (lambda ()
+             (summarize (parse-file path) nsort))
+         (lambda (products missings standard-scores)
+           (print-tex-table products missings standard-scores)
+           (print-distribution-plot-data standard-scores))))
+      (_ (display-usage)))))
