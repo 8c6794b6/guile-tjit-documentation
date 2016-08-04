@@ -63,7 +63,7 @@
   '(Bigloo Chez Chicken Gambit GuileTjit Ikarus Larceny MIT Pycket Racket))
 
 (define byte-code-compilers
-  '(Gauche Kawa RacketNoJit Sagittarius))
+  '(Gauche Kawa MITBc RacketNoJit Sagittarius))
 
 (define interpreters
   '(GuileInterp))
@@ -228,6 +228,7 @@ true, otherwise sorts alphabetically by benchmark name."
          (format-gm 'Gauche)
          (format-gm 'Sagittarius)
          (format-gm 'RacketNoJit)
+         (format-gm 'MITBc)
          (format #t "  Native code compilers:~%")
          (format-gm 'Chez)
          (format-gm 'Bigloo)
@@ -244,24 +245,10 @@ true, otherwise sorts alphabetically by benchmark name."
 
 ;;;; Printer
 
-(define (print-standard-scores standard-scores)
-  (for-each
-   (match-lambda
-     ((name . ($ <standard-score> name n mean sigma scores))
-      (format #t "~s: n=~s gmean=~5,3f gsd=~5,3f~%" name n mean sigma)
-      (for-each
-       (match-lambda
-         (($ <z> name score elapsed)
-          (format #t "~12@s: ~5,3@f (~7,2f ms)~%" name score elapsed)))
-       (sort scores (lambda (a b)
-                      (< (z-score a) (z-score b)))))))
-   (sort (hash-map->list cons standard-scores) compare-tjit-scores)))
-
 (define (find-score-by-name impl scores)
-  (z-score
-   (find (lambda (z)
-           (eq? impl (z-name z)))
-         (standard-score-scores scores))))
+  (z-score (find (lambda (z)
+                   (eq? impl (z-name z)))
+                 (standard-score-scores scores))))
 
 (define (find-tjit-score scores)
   (find-score-by-name 'GuileTjit scores))
@@ -283,6 +270,37 @@ true, otherwise sorts alphabetically by benchmark name."
            score
            (lp scores)))
       (_ #f))))
+
+(define (print-histogram-data products)
+  (define (compare-benchmark-times a b)
+    (< (cdr a) (cdr b)))
+  (let* ((results (hash-map->list cons products))
+         (tjit-times (normalized-times (hashq-ref products 'GuileTjit)))
+         (interp-times (normalized-times (hashq-ref products 'GuileInterp)))
+         (benchmarks
+          (map car (sort tjit-times compare-benchmark-times))))
+    (call-with-output-file "hist.dat"
+      (lambda (port)
+        (format port "~12s  ~5a    ~5a~%" 'Benchmark 'Nash 'Interp)
+        (do ((benchmarks benchmarks (cdr benchmarks)))
+            ((null? benchmarks))
+          (let* ((benchmark (car benchmarks))
+                 (tjit (assq-ref tjit-times benchmark))
+                 (interp (assq-ref interp-times benchmark)))
+            (format port "~12s  ~5,3f    ~5,3f~%" benchmark tjit interp)))))))
+
+(define (print-standard-scores standard-scores)
+  (for-each
+   (match-lambda
+     ((name . ($ <standard-score> name n mean sigma scores))
+      (format #t "~s: n=~s gmean=~5,3f gsd=~5,3f~%" name n mean sigma)
+      (for-each
+       (match-lambda
+         (($ <z> name score elapsed)
+          (format #t "~12@s: ~5,3@f (~7,2f ms)~%" name score elapsed)))
+       (sort scores (lambda (a b)
+                      (< (z-score a) (z-score b)))))))
+   (sort (hash-map->list cons standard-scores) compare-tjit-scores)))
 
 (define (print-tex-table products missings standard-scores)
   (call-with-output-file "tmp.tex"
@@ -307,7 +325,7 @@ true, otherwise sorts alphabetically by benchmark name."
       (format port "\\bottomrule~%")
       (format port "\\end{tabular}~%"))))
 
-(define (print-distribution-plot-data standard-scores)
+(define (print-distribution-data standard-scores)
   (let* ((scores (hash-map->list cons standard-scores))
          (scores (sort scores compare-tjit-scores))
          (bench-names (map car scores))
@@ -318,7 +336,17 @@ true, otherwise sorts alphabetically by benchmark name."
          ;;                paraffins maze matrix graphs lattice conform
          ;;                ))
          )
-    (call-with-output-file "tmp.dat"
+    (define (print-points file name)
+      (call-with-output-file file
+        (lambda (port)
+          (format port "~a~%~{~a~%~}"
+                  name
+                  (map (lambda (bench-name)
+                         (let ((std-score
+                                (hashq-ref standard-scores bench-name)))
+                           (find-score-by-name name std-score)))
+                       bench-names)))))
+    (call-with-output-file "dist.dat"
       (lambda (port)
         (format port "# ~{~a ~}~%" bench-names)
         (do ((impls native-code-compilers (cdr impls)))
@@ -333,22 +361,35 @@ true, otherwise sorts alphabetically by benchmark name."
                      (format port "~a " (if z (z-score z) 'n/a))))
                   (_ (values)))))
             (newline port)))))
-    (call-with-output-file "tmp2.dat"
-      (lambda (port)
-        (format port "n/a~%~{~a~%~}"
-                (map (lambda (bench-name)
-                       (let ((std-score
-                              (hashq-ref standard-scores bench-name)))
-                         (find-tjit-score std-score)))
-                     bench-names))))
-    (call-with-output-file "tmp3.dat"
-      (lambda (port)
-        (format port "n/a~%~{~a~%~}"
-                (map (lambda (bench-name)
-                       (let ((std-score
-                              (hashq-ref standard-scores bench-name)))
-                         (find-pycket-score std-score)))
-                     bench-names))))))
+    (print-points "dist-nash.dat" 'GuileTjit)
+    (print-points "dist-pycket.dat" 'Pycket)))
+
+(define (print-geometric-means products missings)
+  (define (format-gm port name)
+    (let* ((normalized (hashq-ref products name))
+           (p (normalized-product normalized))
+           (n (length (normalized-times normalized)))
+           (gm (expt p (/ 1 n))))
+      (format port "~s & ~6,3f & ~s & " name gm n)
+      (let ((missing-results (hashq-ref missings name)))
+        (when missing-results
+          (format port "~{~a~^, ~} " missing-results)))
+      (display "\\\\" port)
+      (newline port)))
+  (define impls
+    '(Chez
+      Bigloo Ikarus Pycket Gambit Larceny Racket GuileTjit Chicken MIT))
+  (call-with-output-file "gm-native.dat"
+    (lambda (port)
+      (format port "\\begin{tabular}{r|ccl}~%")
+      (format port "\\toprule~%")
+      (format port "& G-mean & N & Failed \\\\~%")
+      (format port "\\midrule~%")
+      (do ((impls impls (cdr impls)))
+          ((null? impls))
+        (format-gm port (car impls)))
+      (format port "\\bottomrule~%")
+      (format port "\\end{tabular}~%"))))
 
 
 ;;;; Main
@@ -373,5 +414,7 @@ OPTIONS:
              (summarize (parse-file path) nsort))
          (lambda (products missings standard-scores)
            (print-tex-table products missings standard-scores)
-           (print-distribution-plot-data standard-scores))))
+           (print-histogram-data products)
+           (print-distribution-data standard-scores)
+           (print-geometric-means products missings))))
       (_ (display-usage)))))
