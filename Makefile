@@ -1,5 +1,7 @@
 base=nash
 
+GUILE=guile --no-auto-compile
+
 .PHONY: all clean
 
 all: ${base}.pdf
@@ -16,6 +18,9 @@ dist.eps: dist.plot dist.dat
 
 hist.eps: hist.plot hist.dat
 	gnuplot -e "outfile='hist.eps'" hist.plot
+
+dist.dat hist.dat: stat.scm
+	${GUILE} -e main stat.scm ${DATA}
 
 clean:
 	rm -f *.log *.pdf *.aux *.out *.dvi *.fls *.blg *.fdb_latexmk *~

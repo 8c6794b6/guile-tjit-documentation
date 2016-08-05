@@ -271,23 +271,24 @@ true, otherwise sorts alphabetically by benchmark name."
            (lp scores)))
       (_ #f))))
 
-(define (print-histogram-data products)
-  (define (compare-benchmark-times a b)
+(define (compare-benchmark-times a b)
     (< (cdr a) (cdr b)))
+
+(define (print-histogram-data products)
   (let* ((results (hash-map->list cons products))
          (tjit-times (normalized-times (hashq-ref products 'GuileTjit)))
          (interp-times (normalized-times (hashq-ref products 'GuileInterp)))
-         (benchmarks
+         (bench-names
           (map car (sort tjit-times compare-benchmark-times))))
     (call-with-output-file "hist.dat"
       (lambda (port)
         (format port "~12s  ~5a    ~5a~%" 'Benchmark 'Nash 'Interp)
-        (do ((benchmarks benchmarks (cdr benchmarks)))
-            ((null? benchmarks))
-          (let* ((benchmark (car benchmarks))
-                 (tjit (assq-ref tjit-times benchmark))
-                 (interp (assq-ref interp-times benchmark)))
-            (format port "~12s  ~5,3f    ~5,3f~%" benchmark tjit interp)))))))
+        (do ((bench-names bench-names (cdr bench-names)))
+            ((null? bench-names))
+          (let* ((bench-name (car bench-names))
+                 (tjit (assq-ref tjit-times bench-name))
+                 (interp (assq-ref interp-times bench-name)))
+            (format port "~12s  ~5,3f    ~5,3f~%" bench-name tjit interp)))))))
 
 (define (print-standard-scores standard-scores)
   (for-each
@@ -303,39 +304,35 @@ true, otherwise sorts alphabetically by benchmark name."
    (sort (hash-map->list cons standard-scores) compare-tjit-scores)))
 
 (define (print-tex-table products missings standard-scores)
-  (call-with-output-file "tmp.tex"
+  (call-with-output-file "tracingjits.tex"
     (lambda (port)
-      (format port "\\begin{tabular}{rccccccccccc}~%")
+      (define (floored-int n)
+        (inexact->exact (floor n)))
+      (define (print-row bench-name)
+        (match (hashq-ref standard-scores bench-name)
+          (($ <standard-score> name n mean sigma scores)
+           (let ((tjit (find-z-score 'GuileTjit scores))
+                 (pycket (find-z-score 'Pycket scores)))
+             (format port "~a & ~4,2f & ~5,2@f & ~5,2@f \\\\~%"
+                     name sigma
+                     (z-score tjit)
+                     (z-score pycket))))))
+      (format port "\\begin{tabular}{rrcc}~%")
+      (format port "Name & GSD & Nash & Pycket \\\\~%")
       (format port "\\toprule~%")
-      (format port "Name & gmean/GSD & ~{~a~^ & ~} \\\\~%" native-code-compilers)
+      (for-each print-row '(sumfp mbrot sum array1 sumloop))
       (format port "\\midrule~%")
-      (for-each
-       (lambda (bench-name)
-         (match (hashq-ref standard-scores bench-name)
-           (($ <standard-score> name n mean sigma scores)
-            (format port "~a & ~4,2f / ~4,2f & ~{~a~^ & ~} \\\\~%"
-                    name mean sigma
-                    (map (lambda (impl)
-                           (let ((z (find-z-score impl scores)))
-                             (if z
-                                 (format #f "~4,2@f" (z-score z))
-                                 'N/A)))
-                         native-code-compilers)))))
-       '(sumfp mbrot dderiv parsing))
-      (format port "\\bottomrule~%")
+      (for-each print-row '(matrix peval dynamic))
+      (format port "\\midrule~%")
+      (for-each print-row '(ctak fibc))
+      (format port "\\midrule~%")
+      (for-each print-row '(fibfp simplex nucleic parsing))
       (format port "\\end{tabular}~%"))))
 
 (define (print-distribution-data standard-scores)
   (let* ((scores (hash-map->list cons standard-scores))
          (scores (sort scores compare-tjit-scores))
-         (bench-names (map car scores))
-         ;; (bench-names '(sumfp
-         ;;                mbrot array1 bv2string sum sumloop
-         ;;                fibfp simplex nucleic
-         ;;                peval dynamic
-         ;;                paraffins maze matrix graphs lattice conform
-         ;;                ))
-         )
+         (bench-names (map car scores)))
     (define (print-points file name)
       (call-with-output-file file
         (lambda (port)
@@ -396,7 +393,7 @@ true, otherwise sorts alphabetically by benchmark name."
 
 (define (main args)
   (define (display-usage)
-    (display "USAGE: gm2.scm [OPTIONS] FILE
+    (display "USAGE: stat.scm [OPTIONS] FILE
 
 OPTIONS:
   -n : sort numerically by normalized result.

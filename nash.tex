@@ -36,6 +36,7 @@
 \usepackage{hyperref}
 \usepackage{booktabs}
 \usepackage{listings}
+\usepackage{multirow}
 
 \hypersetup{
   colorlinks=true,
@@ -142,9 +143,9 @@ Lua~\cite{pall2016luajit}, JavaScript~\cite{gal2009trace}, and
 Python~\cite{bolz2009tracing} have made success with VMs which implement tracing
 JIT.\@
 
-\textit{Nash} is a new tracing JIT VM for GNU Guile. Guile is a general-purpose
-Scheme implementation which could be used as an extension language, as a
-scripting engine, and for application development. Guile offers
+\textit{Nash} is a new experimental tracing JIT VM for GNU Guile. Guile is a
+general-purpose Scheme implementation which could be used as an extension
+language, as a scripting engine, and for application development. Guile offers
 \textit{libguile} to allow itself to be embedded in other program. GnuCash,
 gEDA, GNU Make, and GDB uses Guile as an extension language. Guile implements
 standard R5RS~\cite{abelson1998revised5}, most of
@@ -180,18 +181,19 @@ containing numbers. The loop inside the procedure checks whether the
 \texttt{i}-th \texttt{vector-ref} of \texttt{vec} is greater than \texttt{0},
 adds up the element if true. The loop repeat the comparison and addition with
 incremented \texttt{i} until \texttt{i} is greater than the
-\texttt{vector-length} of \texttt{vec}. In Guile, Scheme source codes are
-compiled to bytecode before the execution.\footnote{In most case, source codes
-  are byte-compiled before executed. Guile can run Scheme source code without
-  compiling so that trivial computations could be done quickly.}
+\texttt{vector-length} of \texttt{vec}.
 
 Section~\hyperref[sec:background]{\ref{sec:background}} briefly mentions some
-background of Guile. When Nash executes \texttt{sumv-positive}, the computation
-starts with bytecode interpretation. After executing the bytecode for a while,
-the bytecode interpreter detects a hot loop in the body of
-\texttt{sumv-positive}. Then the bytecode interpreter switches its state, start
-recording the bytecode instructions of the loop, and corresponding stack values
-for the instructions. Recording of instructions are described in
+background of Guile. In Guile, Scheme source codes are compiled to bytecode
+before the execution.\footnote{In most case, source codes are byte-compiled
+  before executed. Guile can run Scheme source code without compiling so that
+  trivial computations could be done quickly.} When Nash executes
+\texttt{sumv-positive}, the computation starts with bytecode
+interpretation. After executing the bytecode for a while, the bytecode
+interpreter detects a hot loop in the body of \texttt{sumv-positive}. Then the
+bytecode interpreter switches its state, start recording the bytecode
+instructions of the loop, and corresponding stack values for the
+instructions. Recording of instructions are described in
 Section~\hyperref[sec:interpreter]{\ref{sec:interpreter}}. When the bytecode
 interpreter reached to the beginning of the observed loop, recorded data are
 passed to JIT compiler. The JIT compiler is written in Scheme, executed with
@@ -270,21 +272,19 @@ conservative Boehm-Demers-Weiser garbage collector~\cite{boehm1988garbage}.
 \begin{table}
   \begin{center}
   \begin{tabular}{ccl}
-    \toprule
     Tag&Type&Scheme value\\
-    \midrule
-    \texttt{XXXXXXXXXXXXX000} & heap object & `foo, \#(1 2 3) \ldots \\
-    \texttt{XXXXXXXXXXXXXX10} & small integer & 1, 2, 3, 4, 5 \ldots \\
-    \texttt{XXXXXXXXXXXXX100} & boolean false & \#f \\
-    \texttt{XXXXXXXX00001100} & character & \#\textbackslash{} a,
+    \toprule
+    \texttt{xxxxxxxxxxxxx000} & heap object & `foo, \#(1 2 3) \ldots \\
+    \texttt{xxxxxxxxxxxxxx10} & small integer & 1, 2, 3, 4, 5 \ldots \\
+    \texttt{xxxxxxxxxxxxx100} & boolean false & \#f \\
+    \texttt{xxxxxxxx00001100} & character & \#\textbackslash{} a,
     \#\textbackslash{} b, \ldots \\
-    \texttt{XXXXXX1100000100} & empty list & `() \\
-    \texttt{XXXXX10000000100} & boolean true & \#t \\
-    \bottomrule
+    \texttt{xxxxxx1100000100} & empty list & `() \\
+    \texttt{xxxxx10000000100} & boolean true & \#t \\
   \end{tabular}
   \end{center}
   \caption{Tag value with corresponding Scheme type and Scheme value. The
-    ``\texttt{X}'' in the tag column indicates any value.}
+    ``\texttt{x}'' in the tag column indicates any value.}
 \label{tab:tags}
 \end{table}
 
@@ -1027,83 +1027,166 @@ be turned on with command line option when invoking \texttt{guile} executable.
 
 \begin{figure}
   \centering
-  \includegraphics[angle=270,origin=c,width=0.5 \textwidth]{bench}
-  \caption{Relative total time of benchmarks and geometric mean normalized to
-    Guile VM-regular. Smaller is better.}
-\label{fig:bench}
+  \includegraphics[angle=270,origin=c,width=0.5 \textwidth]{hist}
+  \caption{Benchmark results of VM-Nash and Guile interpreter, total time
+    normalized to VM-regular. Smaller is better.}
+  \label{fig:bench}
 \end{figure}
-
-\begin{table}
-  \centering
-  \begin{tabular}{rccc}
-    \toprule
-    Benchmark name & Nash & Racket & Pycket \\
-    \midrule
-    sumfp & 0.021 & 0.127 & 0.015 \\
-    mbrot & 0.036 & 0.122 & 0.018 \\
-    sum & 0.118 & 0.373 & 0.088 \\
-    \midrule
-    ctak & 0.844 & 1.050 & 0.091 \\
-    fibc & 1.282 & 1.116 & 0.095 \\
-    \midrule
-    paraffins & 1.160 & 0.725 & 1.500 \\
-    parsing & 1.886 & 0.149 & 0.154 \\
-    dynamic & 4.526 & 0.549 & 2.043 \\
-    \midrule
-    Geometric mean & 0.420 & 0.312 & 0.235 \\
-    \bottomrule
-  \end{tabular}
-  \caption{Selected benchmark results and geometric mean in
-    Figure~\hyperref[fig:bench]{\ref{fig:bench}} shown in numbers. Smaller is
-    better.}
-\label{tab:bench}
-\end{table}
 
 \subsection{Settings}
 
-Performance of Nash is evaluated with modified cross platform benchmark suite
-from Pycket project. The source code of the benchmarks originate from Larceny
-and Gambit project. Some modifications were done to the Pycket version for
-evaluating Nash. Benchmarks \texttt{bv2string}, \texttt{ntakl} and
-\texttt{quicksort} were added. All of the three newly added benchmarks exist in
-the original Larceny and Gambit benchmark suite. Iteration counts for
+Performance of Nash is evaluated with cross platform benchmark suite from Pycket
+project. The source code of the benchmarks originate from Larceny and Gambit
+project. Some modifications were made to the Pycket version. Benchmarks
+\texttt{bv2string}, \texttt{ntakl} and \texttt{quicksort} were added, which
+exist in the original Larceny and Gambit benchmark suite. Iteration counts for
 \texttt{ctak}, \texttt{fft}, \texttt{pnpoly}, \texttt{fibc}, and \texttt{ray}
 are decreased, which were taking long execution time in Guile's VM-regular. The
-modified benchmark suite contains 57 programs.
-
-The benchmark results were taken under a machine with Intel Core-i5 3427-U and
-8GB of memory, running Arch Linux, Linux kernel 4.5.4. The Scheme
-implementations and its versions used are Guile VM-regular version 2.1.2, Racket
-version 6.5, and Pycket git revision 5f98bfe (with RPython hg revision
-83529:2179c). Total elapsed time of each program including JIT warm up time was
-measured.
+modified benchmark suite contains 57 programs. Total elapsed time of each
+program including JIT warm up time was measured. The benchmark results were
+taken under a machine with Intel Core-i5 3427-U and 8GB of memory, running Arch
+Linux, Linux kernel 4.5.4.
 
 \subsection{Results}
+\label{sec:results}
 
-Figure~\ref{fig:bench} shows relative total time of each benchmark result and
-geometric mean normalized to Guile's VM-regular. The range of the plot in the
-figure is limited from 0 to 2 for displaying
-purpose. Table~\hyperref[tab:bench]{\ref{tab:bench}} contains selected benchmark
-results and geometric mean shown in numbers.  Geometric means of 57 programs
-shows that Nash runs approximately $2.4\times$ \textit{faster} than VM-regular,
-$1.4\times$ \textit{slower} than Racket, and $1.8\times$ \textit{slower} than
-Pycket.
+\subsubsection{Comparison With VM-regular And Interpreter}
+\label{sec:guilecomp}
 
-Some of the benchmarks have shown significant performance improvement in Nash
-compared to VM-regular. Benchmark \texttt{sumfp} and \texttt{mbrot} contain
-tight loop with Scheme \texttt{flonum}, which is implemented with heap object in
-Guile. When possible, Nash tries to unbox \texttt{flonum} values and keep using
-the unboxed value in native code. Nash runs \texttt{sumfp} $47\times$ faster,
-and \texttt{mbrot} $27\times$ faster than VM-regular. The results of
-\texttt{sumfp} and \texttt{mbrot} are about $6\times$ and $3.3\times$ faster
-than Racket, respectively. However, both benchmarks still run slower than
-Pycket.
+\begin{table}
+  \centering
+  \begin{tabular}{rrr}
+     & Nash & Interpreter \\
+    \toprule
+    sumfp & 0.024 & 7.926 \\
+    mbrot & 0.034 & 6.626 \\
+    sum & 0.119 & 42.579 \\
+    sumloop & 0.157 & 54.323 \\
+    \midrule
+    sum1 & 0.905 & 1.232 \\
+    pi & 0.999 & 1.503 \\
+    string & 1.115 & 1.125 \\
+    \midrule
+    ctak & 1.073 & 2.243 \\
+    fibc & 1.678 & 2.507 \\
+    parsing & 1.654 & 9.685 \\
+    dynamic & 2.506 & 6.359 \\
+    \midrule
+    Geometric mean & 0.400 & 13.770 \\
+  \end{tabular}
+  \caption{Selected benchmark results from
+    Figure~\hyperref[fig:bench]{\ref{fig:bench}} and geometric mean of the
+    benchmarks shown in numbers.}
+\label{tab:compguile}
+\end{table}
 
-Some of the benchmarks performed worse than Guile's VM-regular. Benchmark
-\texttt{parsing} and \texttt{dynamic} contain program to parse a Scheme source
-code. These programs include lots of branching conditions. The \texttt{parsing}
-and \texttt{dynamic} performed $1.9\times$ and $4.5\times$ slower than
-VM-regular, respectively.
+Figure~\ref{fig:bench} shows total times of benchmark results of Nash and
+Guile's plain interpreter, normalized to Guile's VM-regular, in logarithmic
+scale.  The Guile interpreter runs Scheme source code without bytecode
+compilation.  Table~\hyperref[tab:compguile]{\ref{tab:compguile}} contains
+selected benchmark results and geometric means of the benchmarks in numbers.
+
+Nash achieved significant performance improvements in benchmark programs
+containing tight loop with Scheme flonum values, such as \texttt{sumfp} and
+\texttt{mbrot}.  Nash also achieved relatively large performance improvements
+with programs containing tight loop without Scheme flonum values, such as
+\texttt{sum} and \texttt{sumloop}.
+
+Some of the benchmarks, such as \texttt{sum1}, \texttt{pi}, \texttt{ctak},
+\texttt{string}, and \texttt{fibc}, showed similar performance in Nash,
+VM-regular, and Guile interpreter. In these benchmarks, large amount of time
+were spent in procedures written in C functions, such as \texttt{read},
+\texttt{string-append}, and arithmetic procedures for large numbers.  All three
+implementations are calling the same underlying C functions, thus the
+differences in performance results were relatively small.
+
+In benchmarks with many continuation object creations, such as \texttt{ctak} and
+\texttt{fibc}, Nash runs slower than VM regular. Nash implements
+\texttt{call/cc} with C function to keep compatibility with C interface of
+libguile, which did not lead to performance improvement.  Performance overhead
+caused by JIT compilation and stack state recovery have slowed down the overall
+performance.  Benchmarks \texttt{parsing} and \texttt{dynamic} did not contain
+creation of continuation objects, though these benchmarks contained lots of
+conditional branches, which caused a large amount of JIT compilation overhead.
+
+\subsubsection{Comparison With Native Code Compilers}
+
+\begin{figure}
+  \centering
+  \includegraphics[angle=270,origin=c,width=0.5 \textwidth]{dist}
+  \caption{Distribution of benchmark results from native code compilers, and
+    geometric standard scores of Nash and Pycket.  Outliers are not shown. Lower
+    is better.}
+  \label{fig:dist}
+\end{figure}
+
+\begin{table*}
+  \centering
+  \begin{tabular}{rccll}
+    Name (version) & Geometric mean & N & Failed benchmarks & Compilation
+    strategy \\
+    \toprule
+    Chez (9.4.1) &  0.148 & 57 & & Incremental \\
+    Bigloo (4.2c) & 0.236 & 54 & pi, trav1, trav2 & Scheme to C \\
+    Ikarus (0.0.4-rc1) & 0.244 & 56 & parsing & Incremental \\
+    Pycket (git 5f98bf3) & 0.252 & 57 & & AOT AST + tracing JIT \\
+    Gambit (4.8.5) & 0.274 & 56 & gcold & Scheme to C \\
+    Larceny (0.99) &  0.301 & 57 & & Incremental \\
+    Racket  (6.6) &  0.324 & 57 & & AOT bytecode + method JIT \\
+    Nash & 0.400 & 57 & & AOT bytecode + tracing JIT \\
+    Chicken (4.11.0) & 0.448 & 54 & gcold, maze, pi & Scheme to C \\
+    MIT (9.2) &  0.486 & 55 & parsing, nucleic & File based \\
+  \end{tabular}
+  \caption{Scheme native code compilers. Geometric means of benchmark results
+    normalized to VM-regular. Geometric means are calculated from valid results
+    only, column \texttt{N} shows the number of valid results.}
+\label{tab:nativecomp}
+\end{table*}
+
+\begin{table}
+  \centering
+  \input{tracingjits.tex}
+  \caption{Selected benchmark results from
+    Figure~\hyperref[fig:dist]{\ref{fig:dist}}. Showing geometric standard
+    deviation, geometric standard score of Nash, and geometric standard score of
+    Pycket. Lower standard score is better.}
+\label{tab:tracingjits}
+\end{table}
+
+The benchmark results were taken with various Scheme native code compilers.
+Table~\hyperref[tab:impls]{\ref{tab:nativecomp}} summarizes benchmark results
+from native code compilers with geometric means computed from valid benchmark
+results, number of succeeded benchmarks, and name of the failed
+benchmarks. Scheme to C compilers used GCC version 6.1.1 to compile the
+resulting C codes. Figure~\hyperref[fig:dist]{\ref{fig:dist}} shows boxplot of
+benchmark results and geometric standard scores from Nash and Pycket. Table
+\hyperref[tab:tracingjits]{\ref{tab:tracingjits}} shows selected benchmark
+results in numbers.
+
+Implementations using tracing JIT have some characteristics in common. Both Nash
+and Pycket performed well with benchmarks containing tight loops. In
+\texttt{sumfp}, \texttt{mbrot}, \texttt{sum}, \texttt{array1} and
+\texttt{sumloop}, Pycket and Nash are the fastest and second to the fastest
+implementations.  In \texttt{matrix}, \texttt{peval} and \texttt{dynamic}, Nash
+and Pycket performed badly. These benchmarks contained lots of conditional
+branches caused from data dependent control flows, which is a known weakness of
+tracing JIT \citep{bauman2015pycket}.
+
+Pycket performed well with benchmark containing extensive use of
+\texttt{call/cc}, such as \texttt{fibc} and \texttt{ctak}. The geometric
+standard deviation of \texttt{fibc} and \texttt{ctak} are relatively larger than
+other benchmarks. The implementation of continuation differed across native code
+compilers, which lead to wider range of benchmark results. As mentioned in
+Section~\ref{sec:guilecomp}, the performance of Nash in the benchmarks
+containing \texttt{call/cc} are slower than VM-regular.
+
+In \texttt{fibfp}, \texttt{simplex}, and \texttt{nucleic}, Pycket was the
+fastest implementation and Nash was the slowest implementation. All three of the
+benchmarks contained Scheme flonum values, which were efficiently handled in
+Pycket but not in Nash.  Nash performed badly in \texttt{parsing} benchmark
+also, but the performance result from Pycket was the median value. Performance
+improvement for \texttt{parsing} benchmark is a known problem for Nash which
+requires further efforts.
 
 \section{Related Work}
 \label{sec:related}
@@ -1114,26 +1197,16 @@ was done in TraceMonkey~\cite{gal2009trace} with similar design.
 The mechanism in interpreter to record instructions and detect hot loops are
 inspired from Pypy and RPython~\cite{bolz2009tracing}. The way how Nash mark
 \texttt{NEXT} and loop starting bytecode definitions are influenced by the
-approach used in interpreter written with RPython.
-
-%% RPython provides a framework to define a new language by writing an
-%% interpreter, while Guile provides a framework to define a new language by
-%% writing a compiler.
-
-Use of A-normal form~\cite{flanagan1993essence} was inspired from
+approach used in interpreter written with RPython.  RPython provides a framework
+to define a new language by writing an interpreter, while Guile provides a
+framework to define a new language by writing a compiler.  Use of A-normal
+form~\cite{flanagan1993essence} was inspired from
 Pycket~\cite{bauman2015pycket}. Though Pycket expands the source code and
 generates JSON data, and parses it to AST for execution. Both Nash and Pycket
-use tracing JIT in its implementation. Both performed well on benchmarks
-containing tight loop, such as \texttt{sumfp}, \texttt{sum}, and
-\texttt{sumloop}. Pycket performed better than Nash. From
-Table~\hyperref[tab:bench]{\ref{tab:bench}}, Pycket performed well with
-benchmark containing extensive use of \texttt{call/cc}, such as \texttt{fibc}
-and \texttt{ctak}. Nash implements \texttt{call/cc} with C stack, to keep
-compatibility with C interface of libguile, which did not lead to performance
-improvement. Both performed bad in benchmarks containing lots of condition
-branches, such as \texttt{paraffins} and \texttt{dynamic}. Nash performed badly
-in \texttt{parsing} benchmark also, but the performance of \texttt{parsing} in
-Pycket was close to Racket.
+use tracing JIT in its implementation. Results shown in
+Section~\ref{sec:evaluation} proved that Pycket is generally faster than Nash.
+However, Pycket is designed as a batch file compiler. It lacks REPL, concurrent
+thread programming support, and interfaces for extension language use.
 
 Design of snapshot was inspired from LuaJIT~\cite{pall2009ip}. LuaJIT uses more
 sophisticated approach and compressed snapshot data. LuaJIT used NaN-tagging,
@@ -1171,9 +1244,9 @@ side trace instead of patched back.
 optimizations. In prologue section of IR shown in
 Section~\hyperref[sec:irprologue]{\ref{sec:irprologue}}, unnecessary load from
 stack exist, which could be omitted by dead-code elimination. More optimizations
-could be done, such as loop invariant code motion, escape analysis, and so
-on. Also, Nash currently uses naive method to assign registers. More
-sophisticated method such as Linear-Scan register
+could be done, such as loop invariant code motion, escape analysis, allocation
+removals, and so on. Also, Nash currently uses naive method to assign
+registers. More sophisticated method such as Linear-Scan register
 allocation~\cite{poletto1999linear} could be used.
 
 \paragraph{Blacklist} Benchmarks such as \texttt{parsing} and
@@ -1191,10 +1264,10 @@ interpreter in Guile, turned it to a trace recording interpreter with few small
 modifications. Nash coexist with existing VM, which is used for JIT compiler
 written in Scheme. Existing bytecode compiled by Guile are traced, recorded and
 compiled to native code. Performance comparison between Nash, Guile's existing
-VM, Racket and Pycket were done. With keeping itself as an extension language,
-Nash showed significant speed ups in programs with tight loops compared to
-Guile's existing VM, and close performance with Scheme implementation with
-native compiler in several of the benchmarks.
+VM, and various Scheme compilers were done. With keeping itself as an extension
+language, Nash showed significant speed ups in programs with tight loops
+compared to Guile's existing VM, and closer performance with Scheme
+implementation with native compiler in overall performance.
 
 %% \appendix
 %% \section{Appendix: title}

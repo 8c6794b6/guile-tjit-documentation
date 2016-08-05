@@ -14,7 +14,7 @@ set style data boxplot
 
 # set title "Standard score of native code compilers"
 unset title
-set ylabel "Benchmark results of native code compilers"
+set ylabel "Distribution of benchmark results"
 
 # set key off
 set key left noautotitle horizontal samplen 0.05 spacing 0.8
