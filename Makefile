@@ -1,4 +1,5 @@
 base=nash
+inc=tracingjits.inc
 
 GUILE=guile --no-auto-compile
 
@@ -6,7 +7,7 @@ GUILE=guile --no-auto-compile
 
 all: ${base}.pdf
 
-${base}.pdf: ${base}.tex ${base}.bib overview.eps bench.eps dist.eps hist.eps
+${base}.pdf: ${base}.tex ${base}.bib ${inc} overview.eps bench.eps dist.eps hist.eps
 	latexmk -pdf -pdflatex="pdflatex -interaction=nonstopmode" \
 	 -use-make ${base}.tex
 
@@ -22,7 +23,7 @@ hist.eps: hist.plot hist.dat
 overview.eps: overview.gv
 	dot -Teps $< -o $@
 
-dist.dat hist.dat: stat.scm
+dist.dat hist.dat ${inc}: stat.scm
 	${GUILE} -e main stat.scm ${DATA}
 
 clean:

@@ -44,7 +44,7 @@
 \hypersetup{
   colorlinks=true,
   linkcolor=blue,
-  citecolor=blue
+  citecolor=violet
 }
 
 \lstset{
@@ -228,12 +228,12 @@ After Dynamo~\cite{bala2000dynamo} used the technique to trace native code,
 various development has been done in the area. LuaJIT is one of the successful
 implementation of tracing JIT VM for the Lua~\cite{ierusalimschy1996lua}
 programming language. Pypy~\cite{bolz2009tracing} is a tracing JIT VM for the
-Python programming language. Pypy is implemented with
-RPython~\cite{bolz2009tracing} framework, which is a \textit{meta-tracing}
-infrastructure to develop a tracing JIT VM by defining an interpreter of the
-target language. The framework was adapted to other language than Python,
-including Pycket~\citep{bauman2015pycket}, a tracing JIT VM for Racket, and
-Pixie, a tracing JIT VM for the Pixie language, which is a dialect of Lisp.
+Python programming language. Pypy is implemented with RPython framework, which
+is a \textit{meta-tracing} infrastructure to develop a tracing JIT VM by
+defining an interpreter of the target language. The framework was adapted to
+other language than Python, including Pycket~\citep{bauman2015pycket}, a
+tracing JIT VM for Racket, and Pixie, a tracing JIT VM for the Pixie language,
+which is a dialect of Lisp.
 
 Typical settings for tracing JIT of dynamic programming language contains an
 interpreter and a JIT compiler. The interpreter observes the execution of
@@ -261,8 +261,6 @@ projects~\cite{Galassi02guilereference}. Since then, various developers have
 made changes to the implementation. As of version 2.1.2, Guile contains a
 bytecode compiler and a VM which interprets the compiled bytecode. Guile uses
 conservative Boehm-Demers-Weiser garbage collector~\cite{boehm1988garbage}.
-
-% Might worth mentioning libguile again.
 
 \subsubsection{SCM Data Type}
 \label{sec:scmdatatype}
@@ -342,50 +340,6 @@ L6:
 \label{fig:bytecode}
 \end{figure}
 
-%% \begin{figure}
-%%   \begin{center}
-%%     \small
-%% \begin{verbatim}
-%% #<sumv-positive (vec)> at #x7f4ddb7fc51c:
-
-%%    0    (assert-nargs-ee/locals 2 5)
-%%    1    (make-short-immediate 6 2)
-%%    2    (vector-length 4 5)
-%%    3    (load-u64 3 0 0)
-%%    6    (br-if-u64-<= 4 3 #f 30)        ;; -> L5
-%%    9    (vector-ref/immediate 2 5 0)
-%%   10    (br-if-u64-<-scm 3 2 #t 4)      ;; -> L1
-%%   13    (add/immediate 6 2 0)
-%% L1:
-%%   14    (load-u64 2 0 1)
-%%   17    (br-if-u64-<= 4 2 #f 16)        ;; -> L4
-%%   20    (mov 1 6)
-%%   21    (mov 6 2)
-%% L2:
-%%   22    (uadd/immediate 0 6 1)
-%%   23    (vector-ref 6 5 6)
-%%   24    (br-if-u64-<-scm 3 6 #t 4)      ;; -> L3
-%%   27    (add 1 1 6)
-%% L3:
-%%   28    (br-if-u64-<= 4 0 #f 9)         ;; -> L6
-%%   31    (mov 6 0)
-%%   32    (br -10)                        ;; -> L2
-%% L4:
-%%   33    (mov 0 2)
-%%   34    (mov 1 6)
-%%   35    (br 2)                          ;; -> L6
-%% L5:
-%%   36    (mov 1 6)
-%% L6:
-%%   37    (mov 5 1)
-%%   38    (return-values 2)
-%% \end{verbatim}
-%% \end{center}
-%% \caption{Byte compiled code of \texttt{sumv-positive}. The contents is slightly
-%%   modified from output of disassembler for displaying purpose and simplicity.}
-%% \label{fig:bytecode}
-%% \end{figure}
-
 Guile's bytecode compiler is designed as \textit{compiler tower}. The compiler
 consists from several compilers defining tower of languages. Each step of the
 compilation sequence knows how to compile down to the step below, until the
@@ -428,47 +382,6 @@ offset 27. The loop contains a jump to \texttt{L6} in IP offset 28, to exit
 from the loop and return the value from \texttt{sumv-positive} procedure to
 the caller.
 
-%% The bytecode was compiled with optimizations turned on. The compiler has moved
-%% \texttt{vector-length} out of the loop, by loop-invariant code motion. The
-%% bytecode compiler also refactored the two calls to \texttt{vector-ref}, by
-%% common sub-expressions elimination.
-
-%% \subsubsection{VM Engine}
-%% \label{sec:guilevmengine}
-
-%% \begin{figure}
-%%   \centering
-%%   \small
-%% \begin{verbatim}
-%% union scm_vm_stack_element
-%% {
-%%   scm_t_uintptr as_uint;
-%%   scm_t_uint32 *as_ip;
-%%   SCM as_scm;
-%%   double as_f64;
-%%   scm_t_uint64 as_u64;
-%%   scm_t_int64 as_s64;
-%%   ...
-%% };
-%% \end{verbatim}
-%% \caption{C code defining union of stack element in VM engine.}
-%% \label{fig:stackelem}
-%% \end{figure}
-
-%% The stack element type used in \texttt{VM\_NAME} is defined as C \texttt{union},
-%% shown in Figure~\hyperref[fig:stackelem]{\ref{fig:stackelem}}.
-
-%% The stack element type used in \texttt{VM\_NAME} is defined as C \texttt{union}.
-%% The actual type used by each bytecode instruction differs, some of the
-%% instructions use stack element as \texttt{SCM}, or as \texttt{scm\_t\_uint64}
-%% which is an internal type for unsigned 64 bit in Guile. For instance, bytecode
-%% instruction \texttt{add\_immediate} adds a constant immediate value to a stack
-%% element specified by given index, with referring the stack element as
-%% \texttt{SCM}. Bytecode instruction \texttt{uadd\_immediate} does almost the
-%% same, except for treating the stack element as \texttt{scm\_t\_uint64}
-%% type. This type specializations are done at the time of bytecode compilation, to
-%% remove unnecessary tagging and untagging of SCM values.
-
 \section{Nash Interpreter}
 \label{sec:interpreter}
 
@@ -484,96 +397,29 @@ the caller.
 \subsection{Nash Overview}
 \label{sec:overview}
 
-% XXX: The sentence ``The bytecode of compiler interpreted by'' was not
-% understood by reviewer 2.
-
 Nash is designed as a drop-in replacement of VM-regular, could be used to run
 scripts, has REPL, and could be embedded in a C program as extension language.
 Following paragraph describes typical control flow of bytecode program
 execution in Nash with corresponding transition numbers in
 Figure~\hyperref[fig:overview]{\ref{fig:overview}}.
 
-\textbf{1.} Nash starts executing bytecode of Scheme program with
-interpreter. The interpretation continues until hot loop is detected.
-\textbf{2.} Interpreter detects a hot loop. The interpreter continue the
-evaluation of instructions with recording the bytecode and the values from
-current stack.  \textbf{3.} The bytecode IP reached to the beginning of the
-loop. The recording ends and traced information are passed to Nash compiler.
-\textbf{4.} Compiler emits native code of the trace and control flow get back
-to Nash Interpreter. Bytecode interpretation continues from the IP where the
-recording ended. \textbf{5.} Interpreter encounters the bytecode IP of
-beginning of the compiled loop. This time compiled native code exists for the
-IP.\@ The interpreter executes the native code.  \textbf{6.} A guard in the
-native code fail. Native code go through a bailout code to recover the state
-of the interpreter, control flow gets back to interpreter.  \textbf{7.}
-Interpreter reaches to the end of bytecode and the program terminates. Before
-reaching to the end of bytecode, transition \textbf{2} and \textbf{5} are
-repeatedly taken as necessary.
-
-\begin{figure}
-  \centering
-  \small
-\begin{Verbatim}
- static SCM
- VM_NAME (scm_i_thread *thread, struct scm_vm *vp,
-          scm_i_jmp_buf *registers, int resume) \{
-   ...
-   VM_DEFINE_OP (1, call, ...) \{
-       ...
-\textcolor{OrangeRed}{-}      \textcolor{OrangeRed}{NEXT(offset);}
-\textcolor{OliveGreen}{+}      \textcolor{OliveGreen}{VM_NASH_CALL (old_ip);}
-   \}
-   VM_DEFINE_OP (3, tail_call ...) \{
-       ...
-\textcolor{OrangeRed}{-}      \textcolor{OrangeRed}{NEXT(offset);}
-\textcolor{OliveGreen}{+}      \textcolor{OliveGreen}{VM_NASH_TAIL_CALL (old_ip);}
-   \}
-   VM_DEFINE_OP (33, br, ...) \{
-       ...
-\textcolor{OrangeRed}{-}      \textcolor{OrangeRed}{NEXT(offset);}
-\textcolor{OliveGreen}{+}      \textcolor{OliveGreen}{VM_NASH_JUMP (offset);}
-   \}
-   VM_DEFINE_OP (152, uadd_immediate, ...) \{
-       ...
-       NEXT (1);
-   \}
-   ...
- \}
-\end{Verbatim}
-\caption{Modified \texttt{VM\_NAME} function. Lines starting with \texttt{-}
-  were deleted, \texttt{+} were added for Nash.}
-\label{fig:vmnamenash}
-\end{figure}
-
-%% Figure~\hyperref[fig:overview]{\ref{fig:overview}} contains a diagram
-%% showing which software components are written as C function, compiled bytecode,
-%% or JIT compiled native code. C function \texttt{vm\_nash\_engine} is the
-%% interpreter used by Nash, which does the bytecode interpretation to count loops,
-%% records the instructions in loops, and calls compiled native code. When traces
-%% and stack values are recorded, \texttt{vm\_nash\_engine} calls
-%% \texttt{vm\_regular\_engine}, the C function used by VM-regular, and pass the
-%% recorded trace and stack values. The bytecode of compiler interpreted by
-%% \texttt{vm\_regular\_engine} is written in Scheme. After successful compilation,
-%% \texttt{vm\_regular\_engine} emits a native code of the input trace. The native
-%% code is called from \texttt{vm\_nash\_engine} when the same loop was
-%% encountered.
-
-\begin{figure*}
-  \centering
-  \small
-\begin{verbatim}
-7f4ddb7fc574  (uadd/immediate 0 6 1)            ; #(#x3e #x2a2 #x1 #x0 #x3e8 #x7f4ddb808660 #x3e)
-7f4ddb7fc578  (vector-ref 6 5 6)                ; #(#x3f #x2a2 #x1 #x0 #x3e8 #x7f4ddb808660 #x3e)
-7f4ddb7fc57c  (br-if-u64-<-scm 3 6 #t 4)        ; #(#x3f #x2a2 #x1 #x0 #x3e8 #x7f4ddb808660 #x1a)
-7f4ddb7fc588  (add 1 1 6)                       ; #(#x3f #x2a2 #x1 #x0 #x3e8 #x7f4ddb808660 #x1a)
-7f4ddb7fc58c  (br-if-u64-<= 4 0 #f 9)           ; #(#x3f #x2ba #x1 #x0 #x3e8 #x7f4ddb808660 #x1a)
-7f4ddb7fc598  (mov 6 0)                         ; #(#x3f #x2ba #x1 #x0 #x3e8 #x7f4ddb808660 #x1a)
-7f4ddb7fc59c  (br -10)                          ; #(#x3f #x2ba #x1 #x0 #x3e8 #x7f4ddb808660 #x3f)
-\end{verbatim}
-\caption{Bytecode instructions and stack values recorded with running
-  \texttt{sumv-positive}.}
-\label{fig:trace}
-\end{figure*}
+\textbf{1.} Program started. Nash starts executing bytecode of Scheme program
+with interpreter. The interpretation continues until hot loop is detected.
+\textbf{2.} A hot loop was detected by the interpreter. The interpreter
+continue the evaluation of instructions with recording the bytecode and the
+values from current stack.  \textbf{3.} The bytecode IP reached to the
+beginning of the loop. The recording ends and traced information are passed to
+Nash compiler.  \textbf{4.} Compilation finished with native code
+generation. Control flow gets back to Nash Interpreter. Bytecode
+interpretation continues from the IP where the recording has
+ended. \textbf{5.}  Interpreter encountered the bytecode IP of beginning of
+the compiled loop. This time compiled native code exists for the IP.\@ The
+interpreter executes the native code.  \textbf{6.} A guard in the native code
+has failed. Native code go through a bailout code to recover the state of the
+interpreter, control flow gets back to interpreter.  \textbf{7.}  Interpreter
+reached to the end of bytecode and the program terminates. Before reaching to
+the end of bytecode, transition \textbf{2} and \textbf{5} are repeatedly taken
+as necessary.
 
 \subsection{VM Engine For Nash}
 
@@ -622,6 +468,58 @@ detect hot loops and execute compiled native codes. A C macro
 \texttt{VM\_NASH\_JUMP}, \texttt{VM\_NASH\_CALL}, and \texttt{VM\_NASH\_TCALL}
 are used for detecting hot loops and entering compiled native code.
 
+\begin{figure}
+  \centering
+  \small
+\begin{Verbatim}
+ static SCM
+ VM_NAME (scm_i_thread *thread, struct scm_vm *vp,
+          scm_i_jmp_buf *registers, int resume) \{
+   ...
+   VM_DEFINE_OP (1, call, ...) \{
+       ...
+\textcolor{OrangeRed}{-}      \textcolor{OrangeRed}{NEXT(offset);}
+\textcolor{OliveGreen}{+}      \textcolor{OliveGreen}{VM_NASH_CALL (old_ip);}
+   \}
+   VM_DEFINE_OP (3, tail_call ...) \{
+       ...
+\textcolor{OrangeRed}{-}      \textcolor{OrangeRed}{NEXT(offset);}
+\textcolor{OliveGreen}{+}      \textcolor{OliveGreen}{VM_NASH_TAIL_CALL (old_ip);}
+   \}
+   VM_DEFINE_OP (33, br, ...) \{
+       ...
+\textcolor{OrangeRed}{-}      \textcolor{OrangeRed}{NEXT(offset);}
+\textcolor{OliveGreen}{+}      \textcolor{OliveGreen}{VM_NASH_JUMP (offset);}
+   \}
+   VM_DEFINE_OP (152, uadd_immediate, ...) \{
+       ...
+       NEXT (1);
+   \}
+   ...
+ \}
+\end{Verbatim}
+\caption{Modified \texttt{VM\_NAME} function. Lines starting with \texttt{-}
+  were deleted, \texttt{+} were added for Nash.}
+\label{fig:vmnamenash}
+\end{figure}
+
+\begin{figure*}
+  \centering
+  \small
+\begin{verbatim}
+7f4ddb7fc574  (uadd/immediate 0 6 1)            ; #(#x3e #x2a2 #x1 #x0 #x3e8 #x7f4ddb808660 #x3e)
+7f4ddb7fc578  (vector-ref 6 5 6)                ; #(#x3f #x2a2 #x1 #x0 #x3e8 #x7f4ddb808660 #x3e)
+7f4ddb7fc57c  (br-if-u64-<-scm 3 6 #t 4)        ; #(#x3f #x2a2 #x1 #x0 #x3e8 #x7f4ddb808660 #x1a)
+7f4ddb7fc588  (add 1 1 6)                       ; #(#x3f #x2a2 #x1 #x0 #x3e8 #x7f4ddb808660 #x1a)
+7f4ddb7fc58c  (br-if-u64-<= 4 0 #f 9)           ; #(#x3f #x2ba #x1 #x0 #x3e8 #x7f4ddb808660 #x1a)
+7f4ddb7fc598  (mov 6 0)                         ; #(#x3f #x2ba #x1 #x0 #x3e8 #x7f4ddb808660 #x1a)
+7f4ddb7fc59c  (br -10)                          ; #(#x3f #x2ba #x1 #x0 #x3e8 #x7f4ddb808660 #x3f)
+\end{verbatim}
+\caption{Bytecode instructions and stack values recorded with running
+  \texttt{sumv-positive}.}
+\label{fig:trace}
+\end{figure*}
+
 \subsubsection{Finding Loops}
 
 Figure~\hyperref[fig:vmnamenash]{\ref{fig:vmnamenash}} shows a snippet
@@ -642,17 +540,6 @@ offset was found in interpreted bytecode, \texttt{vm\_nash\_engine} looks for
 a native code with the next IP.\@ Similarly, \texttt{VM\_NASH\_CALL} and
 \texttt{VM\_NASH\_TAIL\_CALL} use its argument \texttt{old\_ip} to detect loop
 from consequent calls to identical IP.\@
-
-
-
-%% Sentences describing type check commented out for simplicity.
-%%
-%% Nash does a type check, using the types derived from values in current stack
-%% contents, and the types used at the time of compilation. This type check
-%% supports polymorphic behaviors in some bytecode operations, such as
-%% arithmetic operations. After successful compilation, native code compiler
-%% saves a Scheme object called \textit{fragment}, which contains compiled
-%% native code and other information such as type information for type check.
 
 If a native code was found, the native code is executed. Otherwise,
 \texttt{vm\_nash\_engine} increment the counter value for the IP, and if the
@@ -721,9 +608,31 @@ with the IP where the recording started, \texttt{vm\_nash\_engine} stopped the
 recording. \texttt{VM\_NASH\_MERGE} is defined with empty body when including
 \texttt{vm-engine.c} file for other VM engines.
 
-%% Approach for recording of trace is different from Pycket. Pycket had a
-%% problem with \textit{cyclic-path}, but Nash didn't. Might worth explaining
-%% the natural-loop-first (NLF) in LuaJIT.
+\section{Nash Compiler}
+\label{sec:compiler}
+
+This section describes the details of JIT compiler in Nash, which is written
+in Scheme. Compiled bytecode of the JIT compiler is executed by
+\texttt{vm\_regular\_engine}.
+
+\subsection{Trace To IR}
+Nash compiles traces to relaxed A-normal form~\cite{flanagan1993essence}
+internal representation (IR) before assigning registers and assembling to
+native code. Figure~\hyperref[fig:anf]{\ref{fig:anf}} shows IR of primitive
+operations compiled from the recorded trace in
+Figure~\hyperref[fig:trace]{\ref{fig:trace}}. The IR primitives contains two
+\texttt{lambda} terms, the first block is for prologue, and the second block
+is for loop body. The IR uses \texttt{let*} instead of \texttt{let} to express
+the sequence of computation. Each primitive operation takes two arguments,
+except for \texttt{\%snap} operation. Primitive operations updating a
+variable, such as \texttt{\%add}, has the variable on the left side of
+expression, which is updated by the corresponding operation. Primitive
+operations without variable update contain a symbol \texttt{\_} at the
+left. The variables starting with the letter \texttt{v} indicates that the
+variable is loaded from current stack. The variables starting with the letter
+\texttt{r} indicates that the variable is for temporal use only.
+
+\subsubsection{Snapshot}
 
 \begin{figure}
   \centering
@@ -762,32 +671,6 @@ recording. \texttt{VM\_NASH\_MERGE} is defined with empty body when including
 \caption{IR of recorded trace in relaxed A-normal form.}
 \label{fig:anf}
 \end{figure}
-
-\section{Nash Compiler}
-\label{sec:compiler}
-
-This section describes the details of JIT compiler in Nash, which is written
-in Scheme. Compiled bytecode of the JIT compiler is executed by
-\texttt{vm\_regular\_engine}.
-
-\subsection{Trace To IR}
-Nash compiles traces to relaxed A-normal form~\cite{flanagan1993essence}
-internal representation (IR) before assigning registers and assembling to
-native code. Figure~\hyperref[fig:anf]{\ref{fig:anf}} shows IR of primitive
-operations compiled from the recorded trace in
-Figure~\hyperref[fig:trace]{\ref{fig:trace}}. The IR primitives contains two
-\texttt{lambda} terms, the first block is for prologue, and the second block
-is for loop body. The IR uses \texttt{let*} instead of \texttt{let} to express
-the sequence of computation. Each primitive operation takes two arguments,
-except for \texttt{\%snap} operation. Primitive operations updating a
-variable, such as \texttt{\%add}, has the variable on the left side of
-expression, which is updated by the corresponding operation. Primitive
-operations without variable update contain a symbol \texttt{\_} at the
-left. The variables starting with the letter \texttt{v} indicates that the
-variable is loaded from current stack. The variables starting with the letter
-\texttt{r} indicates that the variable is for temporal use only.
-
-\subsubsection{Snapshot}
 
 Between recorded bytecode instructions, \texttt{\%snap} expressions may
 inserted to make \textit{snapshot} data. Snapshots contain various information
@@ -1195,6 +1078,12 @@ in Pycket but not in Nash.  Nash performed badly in \texttt{parsing} benchmark
 also, but the performance result from Pycket was the median value. Performance
 improvement for \texttt{parsing} benchmark is a known problem for Nash which
 requires further efforts.
+
+%% \section{Discussion}
+
+%% Approach for recording of trace is different from Pycket. Pycket had a
+%% problem with \textit{cyclic-path}, but Nash didn't. Might worth explaining
+%% the natural-loop-first (NLF) in LuaJIT.
 
 \section{Limitations and Future Work}
 \label{sec:future}
