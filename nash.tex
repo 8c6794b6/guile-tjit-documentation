@@ -32,11 +32,14 @@
 % numbers       To obtain numeric citation style instead of author/year.
 
 \usepackage{amsmath}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{fancyvrb}
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{booktabs}
 \usepackage{listings}
 \usepackage{multirow}
+\usepackage[T1]{fontenc}
 
 \hypersetup{
   colorlinks=true,
@@ -50,6 +53,8 @@
 }
 
 \newcommand{\cL}{{\cal L}}
+
+\fvset{commandchars=\\\{\}}
 
 \begin{document}
 
@@ -86,26 +91,18 @@
 
 \begin{abstract}
 
-This paper introduces \textit{Nash}\footnote{\textbf{N}ative code
-  \textbf{AS}sembler for \textbf{H}ot instructions.}, an experimental
-\textit{virtual machine} (VM) for GNU Guile with tracing \textit{just-in-time}
-(JIT) compiler. Nash is designed as a drop-in replacement for Guile's existing
-VM.\@ Nash could be used for running scripts, used at a REPL, and embedded in
-other programs. Design of Nash internals is discussed, including its VM
-interpreter which records frequently executed instructions found in Guile's
-bytecode, and its JIT compiler which emits native code from recorded
-instructions. Nash coexists with Guile's existing VM.\@ Lots of Guile's
-features, such as bytecode interpreter, are reused in Nash. When conditions were
-met, Nash runs more than \textit{$40\times$ faster} than Guile's existing VM,
-without modifying the input program. Benchmark results of Nash are shown,
-including comparisons with other Scheme implementations.
-
-
-%% Guile contains bytecode
-%% compiler, which is designed as a compilation tower. The compiler tower design
-%% enables compiling and running other language than Scheme, which means that Nash
-%% could be used as a VM for other languages.
-
+This paper introduces \textit{Nash}, an experimental \textit{virtual machine}
+(VM) for GNU Guile with tracing \textit{just-in-time} (JIT) compiler. Nash is
+designed as a drop-in replacement for Guile's existing VM.\@ Nash could be
+used for running scripts, used at a REPL, and embedded in other
+programs. Design of Nash internals is discussed, including its VM interpreter
+which records frequently executed instructions found in Guile's bytecode, and
+its JIT compiler which emits native code from recorded instructions. Nash
+coexists with Guile's existing VM.\@ Lots of Guile's features, such as
+bytecode interpreter, are reused in Nash. When conditions were met, Nash runs
+more than \textit{$40\times$ faster} than Guile's existing VM, without
+modifying the input program. Benchmark results of Nash are shown, including
+comparisons with other Scheme implementations.
 
 \end{abstract}
 
@@ -123,10 +120,10 @@ Scheme~Programming~Language
 
 From its simple design, Scheme is used for various purposes, many
 implementations exist. One of the uses is as an extension language embedded in
-other program. Implementations such as Chibi-Scheme and TinyScheme are designed
-with use as an extension language in mind. On the other hand, there are Scheme
-implementations used for more expensive computations. This kind of Scheme
-implementations typically compiles to native code before executing. The
+other program. Implementations such as Chibi-Scheme and TinyScheme are
+designed with use as an extension language in mind. On the other hand, there
+are Scheme implementations used for more expensive computations. This kind of
+Scheme implementations typically compiles to native code before executing. The
 compilation could be done \textit{ahead-of-time} (AOT), such as in
 Bigloo~\cite{serrano1995bigloo} and Gambit~\cite{feeley1998gambit}, or
 incrementally, such as in Chez~\cite{dybvig2006development} and
@@ -134,14 +131,14 @@ Larceny~\cite{hansen1992impact}, or in a mixture of AOT and JIT compilation,
 such as in Pycket~\cite{bauman2015pycket}, and Racket~\cite{flatt2013racket}.
 
 There exist a performance gap between Scheme implementations which does native
-code compilation and which doesn't. Tracing JIT compilation is a technique used
-in VM to improve performance by compiling the frequently executed instruction
-code paths. Dynamo~\cite{bala2000dynamo} has pioneered the use of tracing JIT by
-tracing native code. Later the technique was used in various VMs for dynamic
-programming language to achieve performance improvement. Languages such as
-Lua~\cite{pall2016luajit}, JavaScript~\cite{gal2009trace}, and
-Python~\cite{bolz2009tracing} have made success with VMs which implement tracing
-JIT.\@
+code compilation and which doesn't. Tracing JIT compilation is a technique
+used in VM to improve performance by compiling the frequently executed
+instruction code paths. Dynamo~\cite{bala2000dynamo} has pioneered the use of
+tracing JIT by tracing native code. Later the technique was used in various
+VMs for dynamic programming language to achieve performance
+improvement. Languages such as Lua~\cite{pall2016luajit},
+JavaScript~\cite{gal2009trace}, and Python~\cite{bolz2009tracing} have made
+success with VMs which implement tracing JIT.\@
 
 \textit{Nash} is a new experimental tracing JIT VM for GNU Guile. Guile is a
 general-purpose Scheme implementation which could be used as an extension
@@ -152,8 +149,8 @@ standard R5RS~\cite{abelson1998revised5}, most of
 R6RS~\cite{sperber2010revised}, several SRFIs, and many extensions of its own,
 including delimited continuations and native POSIX thread
 support~\cite{Galassi02guilereference}. Nash is designed to be a drop-in
-replacement for Guile's existing VM, which is called \textit{VM-regular} in this
-paper, to achieve performance improvement.
+replacement for Guile's existing VM, which is called \textit{VM-regular} in
+this paper, to achieve performance improvement.
 
 \begin{figure}
   \begin{center}
@@ -176,8 +173,8 @@ paper, to achieve performance improvement.
 Figure~\hyperref[fig:scmloop]{\ref{fig:scmloop}} shows Scheme source code of a
 sample procedure \texttt{sumv-positive} which contains a loop. Details of Nash
 internal are explained with using \texttt{sumv-positive}. The
-\texttt{sumv-positive} procedure takes a single argument \texttt{vec}, a vector
-containing numbers. The loop inside the procedure checks whether the
+\texttt{sumv-positive} procedure takes a single argument \texttt{vec}, a
+vector containing numbers. The loop inside the procedure checks whether the
 \texttt{i}-th \texttt{vector-ref} of \texttt{vec} is greater than \texttt{0},
 adds up the element if true. The loop repeat the comparison and addition with
 incremented \texttt{i} until \texttt{i} is greater than the
@@ -192,23 +189,23 @@ before the execution.\footnote{In most case, source codes are byte-compiled
 interpretation. After executing the bytecode for a while, the bytecode
 interpreter detects a hot loop in the body of \texttt{sumv-positive}. Then the
 bytecode interpreter switches its state, start recording the bytecode
-instructions of the loop, and corresponding stack values for the
-instructions. Recording of instructions are described in
+instructions and corresponding stack values of the loop. Recording of
+instructions are described in
 Section~\hyperref[sec:interpreter]{\ref{sec:interpreter}}. When the bytecode
 interpreter reached to the beginning of the observed loop, recorded data are
 passed to JIT compiler. The JIT compiler is written in Scheme, executed with
 VM-regular. The compiler uses recorded bytecode and stack values to emit
 optimized native code. The variables from the stack are used to specify types,
-possibly emitting \textit{guards} to exit from the compiled native code. More of
-the JIT compiler internals are covered in
+possibly emitting \textit{guards} to exit from the compiled native code. More
+of the JIT compiler internals are covered in
 Section~\hyperref[sec:compiler]{\ref{sec:compiler}}.
 
 The rest of the sections are organized as follows.
 Section~\hyperref[sec:evaluation]{\ref{sec:evaluation}} shows results from
 benchmark, including comparisons between Nash and other Scheme
-implementations. Section~\hyperref[sec:related]{\ref{sec:related}} mentions
-related works. Finally, Section~\hyperref[sec:conclusion]{\ref{sec:future}}
-discusses current limitations and possibilities for future work, and
+implementations. Section~\hyperref[sec:conclusion]{\ref{sec:future}} discusses
+current limitations and possibilities for future work. Finally,
+Section~\hyperref[sec:related]{\ref{sec:related}} mentions related works, and
 Section~\hyperref[sec:conclusion]{\ref{sec:conclusion}} concludes this paper.
 
 \section{Background}
@@ -244,16 +241,17 @@ instructions, detects hot loops, and records frequently executed
 instructions. The recorded instructions are often called \textit{trace}. JIT
 compiler then compiles the trace to get optimized native code of the hot
 loop. The interpreter typically has a functionality to switch between a phase
-for observing the loop, a phase for recording the instructions, and a phase for
-executing the compiled native code.  Compiled native code contains
-\textit{guards} to terminate the execution of native code, and bring the control
-of program back to the interpreter. Guards are inserted when recorded trace
-contains conditions which might not satisfied in later iteration of the
-loop. For instance, the loop in Figure~\hyperref[fig:scmloop]{\ref{fig:scmloop}}
-will emit a guard which compares the value of \texttt{i} with length of the
-vector. In dynamic programming languages such as Scheme, guards for type check
-may be inserted as well, since compiler could generate more optimized native
-code when the types of the values are known at compilation time.
+for observing the loop, a phase for recording the instructions, and a phase
+for executing the compiled native code.  Compiled native code contains
+\textit{guards} to terminate the execution of native code, and bring the
+control of program back to the interpreter. Guards are inserted when recorded
+trace contains conditions which might not satisfied in later iteration of the
+loop. For instance, the loop in
+Figure~\hyperref[fig:scmloop]{\ref{fig:scmloop}} will emit a guard which
+compares the value of \texttt{i} with length of the vector. In dynamic
+programming languages such as Scheme, guards for type check may be inserted as
+well, since compiler could generate more optimized native code when the types
+of the values are known at compilation time.
 
 \subsection{GNU Guile}
 \label{sec:backgroundguile}
@@ -288,30 +286,30 @@ conservative Boehm-Demers-Weiser garbage collector~\cite{boehm1988garbage}.
 \label{tab:tags}
 \end{table}
 
-Guile's internal data type for Scheme object is defined as typedef \texttt{SCM}
-in C~\cite{Galassi02guilereference}. \texttt{SCM} value contains a type tag to
-identify its type in Scheme, which could be categorized in two kinds:
-\textit{immediates} and \textit{heap objects}. Immediates are Scheme value with
-type tag, and the value to identify itself in system dependent bit
-size. Immediates includes booleans, characters, small integers, the empty list,
-the end of file object, the \textit{unspecified} object, and \textit{nil} object
-used in the Emacs-Lisp compatibility mode, and other special objects used
-internally. Heap objects are all the other types which could not fit itself in
-system dependent bit size, such as symbols, lists, vectors, strings, procedures,
-multi-precision integer numbers, and so on.  When Guile decide the type of
-\texttt{SCM} value, firstly the three least significant bits (called
-\textit{tc3} tag in Guile) of \texttt{SCM} value is used to decide whether the
-value belongs to immediates or heap objects. Table
-\hyperref[tab:tags]{\ref{tab:tags}} shows the type tags for immediates and heap
-objects. When tc3 tag was \texttt{000}, the value belongs to heap objects. All
-the other values of tc3 tag are immediates, though some of the tag values are
-unused. For instance, tc3 tag \texttt{010} and \texttt{110} are used for small
-integers, and only the first two bits are used to identify the type, the rest of
-the bits are used to contain the integer value. For instance, Scheme value $0$
-is SCM $00000010$, Scheme value $1$ is SCM $00000110$, Scheme value 2 is SCM
-$00001010$, and so on. Types of various heap object are decided by using the
-rest of \texttt{SCM} value, possibly referencing the address derived from
-non-tc3 tag value in \texttt{SCM}.
+Guile's internal data type for Scheme object is defined as typedef
+\texttt{SCM} in C~\cite{Galassi02guilereference}. \texttt{SCM} value contains
+a type tag to identify its type in Scheme, which could be categorized in two
+kinds: \textit{immediates} and \textit{heap objects}. Immediates are Scheme
+value with type tag, and the value to identify itself in system dependent bit
+size. Immediates includes booleans, characters, small integers, the empty
+list, the end of file object, the \textit{unspecified} object, and
+\textit{nil} object used in the Emacs-Lisp compatibility mode, and other
+special objects used internally. Heap objects are all the other types which
+could not fit itself in system dependent bit size, such as symbols, lists,
+vectors, strings, procedures, multi-precision integer numbers, and so on.
+When Guile decide the type of \texttt{SCM} value, firstly the three least
+significant bits (called \textit{tc3} tag in Guile) of \texttt{SCM} value is
+used to decide whether the value belongs to immediates or heap objects. Table
+\hyperref[tab:tags]{\ref{tab:tags}} shows the type tags for immediates and
+heap objects. When tc3 tag was \texttt{000}, the value belongs to heap
+objects. All the other values of tc3 tag are immediates, though some of the
+tag values are unused. For instance, tc3 tag \texttt{010} and \texttt{110} are
+used for small integers, and only the first two bits are used to identify the
+type, the rest of the bits are used to contain the integer value. For
+instance, Scheme value $0$ is SCM $00000010$, Scheme value $1$ is SCM
+$00000110$, Scheme value 2 is SCM $00001010$, and so on. Types of various heap
+object are decided by using the rest of \texttt{SCM} value, possibly
+referencing the address derived from non-tc3 tag value in \texttt{SCM}.
 
 \subsubsection{Bytecode Compiler}
 
@@ -319,21 +317,10 @@ non-tc3 tag value in \texttt{SCM}.
   \begin{center}
     \small
 \begin{verbatim}
-Disassembly of #<sumv-positive (vec)> at #x7f4ddb7fc51c:
+#<sumv-positive (vec)> at #x7f4ddb7fc51c:
 
-   0    (assert-nargs-ee/locals 2 5)    ;; 7 slots
-   1    (make-short-immediate 6 2)      ;; 0
-   2    (vector-length 4 5)
-   3    (load-u64 3 0 0)
-   6    (br-if-u64-<= 4 3 #f 30)        ;; -> L5
-   9    (vector-ref/immediate 2 5 0)
-  10    (br-if-u64-<-scm 3 2 #t 4)      ;; -> L1
-  13    (add/immediate 6 2 0)
-L1:
-  14    (load-u64 2 0 1)
-  17    (br-if-u64-<= 4 2 #f 16)        ;; -> L4
-  20    (mov 1 6)
-  21    (mov 6 2)
+   0    (assert-nargs-ee/locals 2 5)
+        ...
 L2:
   22    (uadd/immediate 0 6 1)
   23    (vector-ref 6 5 6)
@@ -343,174 +330,144 @@ L3:
   28    (br-if-u64-<= 4 0 #f 9)         ;; -> L6
   31    (mov 6 0)
   32    (br -10)                        ;; -> L2
-L4:
-  33    (mov 0 2)
-  34    (mov 1 6)
-  35    (br 2)                          ;; -> L6
-L5:
-  36    (mov 1 6)
+        ...
 L6:
   37    (mov 5 1)
-  38    (return-values 2)               ;; 1 value
+  38    (return-values 2)
 \end{verbatim}
 \end{center}
-\caption{Byte compiled code of \texttt{sumv-positive}. The contents is slightly
-  modified from output of disassembler for displaying purpose.}
+\caption{Byte compiled code of \texttt{sumv-positive}. The contents is
+  slightly modified from output of disassembler for displaying purpose and
+  simplicity.}
 \label{fig:bytecode}
 \end{figure}
+
+%% \begin{figure}
+%%   \begin{center}
+%%     \small
+%% \begin{verbatim}
+%% #<sumv-positive (vec)> at #x7f4ddb7fc51c:
+
+%%    0    (assert-nargs-ee/locals 2 5)
+%%    1    (make-short-immediate 6 2)
+%%    2    (vector-length 4 5)
+%%    3    (load-u64 3 0 0)
+%%    6    (br-if-u64-<= 4 3 #f 30)        ;; -> L5
+%%    9    (vector-ref/immediate 2 5 0)
+%%   10    (br-if-u64-<-scm 3 2 #t 4)      ;; -> L1
+%%   13    (add/immediate 6 2 0)
+%% L1:
+%%   14    (load-u64 2 0 1)
+%%   17    (br-if-u64-<= 4 2 #f 16)        ;; -> L4
+%%   20    (mov 1 6)
+%%   21    (mov 6 2)
+%% L2:
+%%   22    (uadd/immediate 0 6 1)
+%%   23    (vector-ref 6 5 6)
+%%   24    (br-if-u64-<-scm 3 6 #t 4)      ;; -> L3
+%%   27    (add 1 1 6)
+%% L3:
+%%   28    (br-if-u64-<= 4 0 #f 9)         ;; -> L6
+%%   31    (mov 6 0)
+%%   32    (br -10)                        ;; -> L2
+%% L4:
+%%   33    (mov 0 2)
+%%   34    (mov 1 6)
+%%   35    (br 2)                          ;; -> L6
+%% L5:
+%%   36    (mov 1 6)
+%% L6:
+%%   37    (mov 5 1)
+%%   38    (return-values 2)
+%% \end{verbatim}
+%% \end{center}
+%% \caption{Byte compiled code of \texttt{sumv-positive}. The contents is slightly
+%%   modified from output of disassembler for displaying purpose and simplicity.}
+%% \label{fig:bytecode}
+%% \end{figure}
 
 Guile's bytecode compiler is designed as \textit{compiler tower}. The compiler
 consists from several compilers defining tower of languages. Each step of the
 compilation sequence knows how to compile down to the step below, until the
 compiled output turns into bytecode instruction set executed by the VM.\@
 
-In Guile version 2.1.2, Scheme input programs are first translated to a program
-in \textit{tree-il} language, an internal representation used by Guile. Then
-resulting tree-il program is compiled to \textit{cps}, which is another internal
-representation, then the resulting cps code is translated to bytecode. Guile
-contains compilers for Emacs-Lisp and Ecmascript, which compiles to
-tree-il. Compilation of tree-il results from Emacs-Lisp and Ecmascript could
-reuse the compilation from tree-il to bytecode used for Scheme. The definition
-of the compilation steps could be modified, which helps the user to add a new
-high-level language compiled to \texttt{tree-il}, or directly compiling to
-bytecode, or compiling to different new target. Guile's bytecode compiler
-applies various optimizations, which all of them are turned on by default. The
-optimizations could be turned off to save compilation time, with sacrificing
-some run time performances.
+In Guile version 2.1.2, Scheme input programs are first translated to a
+program in \textit{tree-il} language, an internal representation used by
+Guile. Then resulting tree-il program is compiled to \textit{cps}, which is
+another internal representation, then the resulting cps code is translated to
+bytecode. Guile contains compilers for Emacs-Lisp and Ecmascript, which
+compiles to tree-il. Compilation of tree-il results from Emacs-Lisp and
+Ecmascript could reuse the compilation from tree-il to bytecode used for
+Scheme. The definition of the compilation steps could be modified, which helps
+the user to add a new high-level language compiled to \texttt{tree-il}, or
+directly compiling to bytecode, or compiling to different new target. Guile's
+bytecode compiler applies various optimizations, which all of them are turned
+on by default. The optimizations could be turned off to save compilation time
+with sacrificing some run time performances.
 
 Figure~\hyperref[fig:bytecode]{\ref{fig:bytecode}} shows compiled bytecode of
 \texttt{sumv-positive}. Each bytecode instruction takes arguments and its use
-varies, some arguments are used as constant, some are used as an index value to
-read or write a value in current stack. The first line of the figure shows the
-procedure name and memory address of the byte-compiled data of
-\texttt{sumv-positive}. The numbers shown in the left of each line are bytecode
-\textit{instruction pointer} (IP) offset. For IP offsets specified as jump
-destination, a label starting from \texttt{L} is shown (IP offset 14, 22, 28,
-33, 36, and 37 in the figure). The bytecode possibly causing a jump contains a
-comment with the destination label (IP offset 6, 10, 17, 24, 28, 32 and 35 in
-the figure).
+varies, some arguments are used as constant, some are used as an index value
+to read or write a value in current stack. The first line of the figure shows
+the procedure name and memory address of the byte-compiled data of
+\texttt{sumv-positive}. The numbers shown in the left of each line are
+bytecode \textit{instruction pointer} (IP) offset. For IP offsets specified as
+jump destination, a label starting from \texttt{L} is shown (IP offset 22, 28,
+and 37 in the figure). The bytecode possibly causing a jump contains a comment
+with the destination label (IP offset 24, 28, and 32 in the figure).
 
-When the procedure \texttt{sumv-positive} is called, VM-regular start executing the
-bytecode from IP offset 0. Later, the execution reaches to IP offset 32,
-\texttt{(br -10)}. The \texttt{br} bytecode instruction is unconditional jump to
-specified IP offset, which is -10 in the figure. This is a backward jump to IP
-offset 22 (labeled as \texttt{L2} in the figure), which indicates a loop. In the
-bytecode instruction inside the loop, IP offset 24 contains a branching
-instruction, which may skip \texttt{(add 1 1 6)} instruction in IP offset
-27. The loop contains a jump to \texttt{L6} in IP offset 28, to exit from the
-loop and return the value from \texttt{sumv-positive} procedure to the caller.
+When the procedure \texttt{sumv-positive} is called, VM-regular start
+executing the bytecode from IP offset 0. Later, the execution reaches to IP
+offset 32, \texttt{(br -10)}. The \texttt{br} bytecode instruction performs
+unconditional jump by adding its argument to current IP.\@ Negative offset
+means a backward jump, which is the case shown in the figure. After the jump,
+current IP is 22 (labeled as \texttt{L2} in the figure), which indicates a
+loop. In the bytecode instruction inside the loop, IP offset 24 contains a
+branching instruction, which may skip \texttt{(add 1 1 6)} instruction in IP
+offset 27. The loop contains a jump to \texttt{L6} in IP offset 28, to exit
+from the loop and return the value from \texttt{sumv-positive} procedure to
+the caller.
 
-The bytecode was compiled with optimizations turned on. The compiler has moved
-\texttt{vector-length} out of the loop, by loop-invariant code motion. The
-bytecode compiler also refactored the two calls to \texttt{vector-ref}, by
-common sub-expressions elimination.
+%% The bytecode was compiled with optimizations turned on. The compiler has moved
+%% \texttt{vector-length} out of the loop, by loop-invariant code motion. The
+%% bytecode compiler also refactored the two calls to \texttt{vector-ref}, by
+%% common sub-expressions elimination.
 
-\subsubsection{VM Engine}
-\label{sec:guilevmengine}
+%% \subsubsection{VM Engine}
+%% \label{sec:guilevmengine}
 
-\begin{figure}
-  \centering
-  \small
-\begin{verbatim}
-static SCM
-VM_NAME (scm_i_thread *thread, struct scm_vm *vp,
-         scm_i_jmp_buf *registers, int resume)
-{
-  ...
-  VM_DEFINE_OP (33, br, ...)
-    {
-      ...
-      NEXT (offset);
-    }
-  ...
-  VM_DEFINE_OP (87, add_immediate, ...)
-    {
-      ...
-      NEXT (1);
-    }
-  ...
-  VM_DEFINE_OP (152, uadd_immediate, ...)
-    {
-      ...
-      NEXT (1);
-    }
-  ...
-}
-\end{verbatim}
-\caption{\texttt{VM\_NAME} defined in C source code.}
-\label{fig:vmnameorig}
-\end{figure}
+%% \begin{figure}
+%%   \centering
+%%   \small
+%% \begin{verbatim}
+%% union scm_vm_stack_element
+%% {
+%%   scm_t_uintptr as_uint;
+%%   scm_t_uint32 *as_ip;
+%%   SCM as_scm;
+%%   double as_f64;
+%%   scm_t_uint64 as_u64;
+%%   scm_t_int64 as_s64;
+%%   ...
+%% };
+%% \end{verbatim}
+%% \caption{C code defining union of stack element in VM engine.}
+%% \label{fig:stackelem}
+%% \end{figure}
 
-Guile uses C functions to interpret compiled bytecode. This C function is called
-\textit{VM engine} in Guile. VM engine is defined in a dedicated file named
-\texttt{vm-engine.c}, which is included multiple times from other source
-code. Figure~\hyperref[fig:vmnameorig]{\ref{fig:vmnameorig}} shows the snippets
-of \texttt{vm-engine.c}. In existing implementation, Guile contains two VM
-engines: one is \textit{vm-regular-engine}, the engine used by VM-regular, and
-another is \textit{vm-debug-engine}, which is used for debugging and contains
-more functionality to help developers during the debug. \texttt{vm-debug-engine}
-can invoke user defined hook procedures in several predefined places, such as
-before a procedure call, before returning values, and before executing each
-bytecode instruction. The invocation of hooks are disabled in
-\texttt{vm-regular-engine} for performance reason. When including
-\texttt{vm-engine.c}, \texttt{VM\_NAME} is defined with different
-literal.\ i.e.: The following C code is written in other file than
-\texttt{vm-engine.c}:
+%% The stack element type used in \texttt{VM\_NAME} is defined as C \texttt{union},
+%% shown in Figure~\hyperref[fig:stackelem]{\ref{fig:stackelem}}.
 
-\begin{verbatim}
-  #define VM_NAME vm_regular_engine
-  #define VM_USE_HOOKS 0
-  #include "vm-engine.c"
-  #undef VM_NAME
-  ...
-  #define VM_NAME vm_debug_engine
-  #define VM_USE_HOOKS 1
-  #include "vm-engine.c"
-  #undef VM_NAME
-\end{verbatim}
-
-Inside the \texttt{VM\_NAME} function, each bytecode instructions is defined
-with \texttt{VM\_DEFINE\_OP} macro with unique instruction number, with
-\texttt{NEXT} at the last of definition body to perform next
-instruction. \texttt{VM\_DEFINE\_OP} macro fills in the jump table used by
-\texttt{VM\_NAME} to define jump destinations.\footnote{Strictly speaking, Guile
-  chooses jump table or \texttt{switch \ldots\@ case} expression at build time for
-  dispatching bytecode, by deciding whether the platform supports label as
-  values (computed \texttt{goto}).}  Some of the instructions continue the
-interpretation with \texttt{NEXT} using constant value, such as
-\texttt{add\_immediate} and \texttt{uadd\_immediate} which using $1$, some with
-using offset value specified in argument, such as \texttt{br}.
-
-\begin{figure}
-  \centering
-  \small
-\begin{verbatim}
-union scm_vm_stack_element
-{
-  scm_t_uintptr as_uint;
-  scm_t_uint32 *as_ip;
-  SCM as_scm;
-  double as_f64;
-  scm_t_uint64 as_u64;
-  scm_t_int64 as_s64;
-  ...
-};
-\end{verbatim}
-\caption{C code defining union of stack element in VM engine.}
-\label{fig:stackelem}
-\end{figure}
-
-The stack element type used in \texttt{VM\_NAME} is defined as C \texttt{union},
-shown in Figure~\hyperref[fig:stackelem]{\ref{fig:stackelem}}.  The actual type
-used by each bytecode instruction differs, some of the instructions use stack
-element as \texttt{SCM}, or as \texttt{scm\_t\_uint64} which is an internal type
-for unsigned 64 bit in Guile. For instance, bytecode instruction
-\texttt{add\_immediate} adds a constant immediate value to a stack element
-specified by given index, with referring the stack element as
-\texttt{SCM}. Bytecode instruction \texttt{uadd\_immediate} does almost the
-same, except for treating the stack element as \texttt{scm\_t\_uint64}
-type. This type specializations are done at the time of bytecode compilation, to
-remove unnecessary tagging and untagging of SCM values.
+%% The stack element type used in \texttt{VM\_NAME} is defined as C \texttt{union}.
+%% The actual type used by each bytecode instruction differs, some of the
+%% instructions use stack element as \texttt{SCM}, or as \texttt{scm\_t\_uint64}
+%% which is an internal type for unsigned 64 bit in Guile. For instance, bytecode
+%% instruction \texttt{add\_immediate} adds a constant immediate value to a stack
+%% element specified by given index, with referring the stack element as
+%% \texttt{SCM}. Bytecode instruction \texttt{uadd\_immediate} does almost the
+%% same, except for treating the stack element as \texttt{scm\_t\_uint64}
+%% type. This type specializations are done at the time of bytecode compilation, to
+%% remove unnecessary tagging and untagging of SCM values.
 
 \section{Nash Interpreter}
 \label{sec:interpreter}
@@ -518,69 +475,88 @@ remove unnecessary tagging and untagging of SCM values.
 \begin{figure}
   \centering
   \includegraphics[width=0.4 \textwidth]{overview}
-  \caption{A diagram showing software components and language its written.}
+  \caption{A diagram showing typical control flow in Nash. The arrows and
+    numbers correspond to state transition described in
+    Section~\ref{sec:overview}.}
 \label{fig:overview}
 \end{figure}
 
 \subsection{Nash Overview}
+\label{sec:overview}
 
 % XXX: The sentence ``The bytecode of compiler interpreted by'' was not
 % understood by reviewer 2.
 
 Nash is designed as a drop-in replacement of VM-regular, could be used to run
-scripts, has REPL, and could be embedded in a C program as extension
-language. Figure~\hyperref[fig:overview]{\ref{fig:overview}} contains a diagram
-showing which software components are written as C function, compiled bytecode,
-or JIT compiled native code. C function \texttt{vm\_nash\_engine} is the
-interpreter used by Nash, which does the bytecode interpretation to count loops,
-records the instructions in loops, and calls compiled native code. When traces
-and stack values are recorded, \texttt{vm\_nash\_engine} calls
-\texttt{vm\_regular\_engine}, the C function used by VM-regular, and pass the
-recorded trace and stack values. The bytecode of compiler interpreted by
-\texttt{vm\_regular\_engine} is written in Scheme. After successful compilation,
-\texttt{vm\_regular\_engine} emits a native code of the input trace. The native
-code is called from \texttt{vm\_nash\_engine} when the same loop was
-encountered.
+scripts, has REPL, and could be embedded in a C program as extension language.
+Following paragraph describes typical control flow of bytecode program
+execution in Nash with corresponding transition numbers in
+Figure~\hyperref[fig:overview]{\ref{fig:overview}}.
+
+\textbf{1.} Nash starts executing bytecode of Scheme program with
+interpreter. The interpretation continues until hot loop is detected.
+\textbf{2.} Interpreter detects a hot loop. The interpreter continue the
+evaluation of instructions with recording the bytecode and the values from
+current stack.  \textbf{3.} The bytecode IP reached to the beginning of the
+loop. The recording ends and traced information are passed to Nash compiler.
+\textbf{4.} Compiler emits native code of the trace and control flow get back
+to Nash Interpreter. Bytecode interpretation continues from the IP where the
+recording ended. \textbf{5.} Interpreter encounters the bytecode IP of
+beginning of the compiled loop. This time compiled native code exists for the
+IP.\@ The interpreter executes the native code.  \textbf{6.} A guard in the
+native code fail. Native code go through a bailout code to recover the state
+of the interpreter, control flow gets back to interpreter.  \textbf{7.}
+Interpreter reaches to the end of bytecode and the program terminates. Before
+reaching to the end of bytecode, transition \textbf{2} and \textbf{5} are
+repeatedly taken as necessary.
 
 \begin{figure}
   \centering
   \small
-\begin{verbatim}
-static SCM
-VM_NAME (scm_i_thread *thread, struct scm_vm *vp,
-         scm_i_jmp_buf *registers, int resume)
-{
-  ...
-  VM_DEFINE_OP (1, call, ...)
-    {
-      ...
-      VM_NASH_CALL (old_ip);
-    }
-  ...
-  VM_DEFINE_OP (3, tail_call ...)
-    {
-      ...
-      VM_NASH_TAIL_CALL (old_ip);
-    }
-  ...
-  VM_DEFINE_OP (33, br, ...)
-    {
-      ...
-      VM_NASH_JUMP (offset);
-    }
-  ...
-  VM_DEFINE_OP (152, uadd_immediate, ...)
-    {
-      ...
-      NEXT (1);
-    }
-  ...
-}
-\end{verbatim}
-\caption{Modified \texttt{VM\_NAME} function shown in
-  Figure~\hyperref[fig:vmnameorig]{\ref{fig:vmnameorig}}.}
+\begin{Verbatim}
+ static SCM
+ VM_NAME (scm_i_thread *thread, struct scm_vm *vp,
+          scm_i_jmp_buf *registers, int resume) \{
+   ...
+   VM_DEFINE_OP (1, call, ...) \{
+       ...
+\textcolor{OrangeRed}{-}      \textcolor{OrangeRed}{NEXT(offset);}
+\textcolor{OliveGreen}{+}      \textcolor{OliveGreen}{VM_NASH_CALL (old_ip);}
+   \}
+   VM_DEFINE_OP (3, tail_call ...) \{
+       ...
+\textcolor{OrangeRed}{-}      \textcolor{OrangeRed}{NEXT(offset);}
+\textcolor{OliveGreen}{+}      \textcolor{OliveGreen}{VM_NASH_TAIL_CALL (old_ip);}
+   \}
+   VM_DEFINE_OP (33, br, ...) \{
+       ...
+\textcolor{OrangeRed}{-}      \textcolor{OrangeRed}{NEXT(offset);}
+\textcolor{OliveGreen}{+}      \textcolor{OliveGreen}{VM_NASH_JUMP (offset);}
+   \}
+   VM_DEFINE_OP (152, uadd_immediate, ...) \{
+       ...
+       NEXT (1);
+   \}
+   ...
+ \}
+\end{Verbatim}
+\caption{Modified \texttt{VM\_NAME} function. Lines starting with \texttt{-}
+  were deleted, \texttt{+} were added for Nash.}
 \label{fig:vmnamenash}
 \end{figure}
+
+%% Figure~\hyperref[fig:overview]{\ref{fig:overview}} contains a diagram
+%% showing which software components are written as C function, compiled bytecode,
+%% or JIT compiled native code. C function \texttt{vm\_nash\_engine} is the
+%% interpreter used by Nash, which does the bytecode interpretation to count loops,
+%% records the instructions in loops, and calls compiled native code. When traces
+%% and stack values are recorded, \texttt{vm\_nash\_engine} calls
+%% \texttt{vm\_regular\_engine}, the C function used by VM-regular, and pass the
+%% recorded trace and stack values. The bytecode of compiler interpreted by
+%% \texttt{vm\_regular\_engine} is written in Scheme. After successful compilation,
+%% \texttt{vm\_regular\_engine} emits a native code of the input trace. The native
+%% code is called from \texttt{vm\_nash\_engine} when the same loop was
+%% encountered.
 
 \begin{figure*}
   \centering
@@ -600,10 +576,37 @@ VM_NAME (scm_i_thread *thread, struct scm_vm *vp,
 \end{figure*}
 
 \subsection{VM Engine For Nash}
-The bytecode interpreter in Nash uses the \texttt{vm-engine.c} file, which was
-used for defining vm engines as described in
-Section~\hyperref[sec:background]{\ref{sec:guilevmengine}}.  The file
-\texttt{vm-engine.c} is included once more with similar code to below:
+
+Guile uses C functions to interpret compiled bytecode. This C function is
+called \textit{VM engine} in Guile. VM engine is defined in a dedicated file
+named \texttt{vm-engine.c}, which is included multiple times from other source
+code. When including \texttt{vm-engine.c}, \texttt{VM\_NAME} is defined with
+unique literal. The following C code is written in other file than
+\texttt{vm-engine.c} to define \texttt{vm\_regular\_engine}, which is a C
+function used by VM-regular to interpret bytecode:
+
+\begin{verbatim}
+  #define VM_NAME vm_regular_engine
+  #include "vm-engine.c"
+  #undef VM_NAME
+\end{verbatim}
+
+Inside the \texttt{VM\_NAME} function, each bytecode instructions is defined
+with \texttt{VM\_DEFINE\_OP} macro with unique instruction number, contains
+\texttt{NEXT} at the last of definition body to perform next
+instruction. \texttt{VM\_DEFINE\_OP} macro fills in the jump table used by
+\texttt{VM\_NAME} to define jump destinations.\footnote{Strictly speaking,
+  Guile chooses jump table or \texttt{switch \ldots\@ case} expression at
+  build time for dispatching bytecode, by deciding whether the platform
+  supports label as values (computed \texttt{goto}).}  Some of the
+instructions continue the interpretation with \texttt{NEXT} using constant
+offset value. For instance, \texttt{uadd\_immediate} instruction constantly
+make progress to $1$ byte next to the current IP without branching, thus the
+\texttt{NEXT} macro takes constant value $1$. Some instructions use offset
+value specified by argument, such as \texttt{(br -10)} shown in
+Figure~\hyperref[fig:bytecode]{\ref{fig:bytecode}}.  The bytecode interpreter
+in Nash uses the same file.  The file \texttt{vm-engine.c} is included once
+more with similar code to below:
 
 \begin{verbatim}
   #define VM_NAME vm_nash_engine
@@ -624,20 +627,23 @@ are used for detecting hot loops and entering compiled native code.
 Figure~\hyperref[fig:vmnamenash]{\ref{fig:vmnamenash}} shows a snippet
 containing modifications made to \texttt{VM\_NAME}. \texttt{VM\_NASH\_JUMP} is
 used in definition body of \texttt{br}, \texttt{VM\_NASH\_CALL} in
-\texttt{call}, and \texttt{VM\_NASH\_TAIL\_CALL} in \texttt{tail-call}. Bytecode
-definitions \texttt{br}, \texttt{call}, and \texttt{tail-call} are marked since
-these bytecode perform a jump, which may start a loop.\footnote{Guile has more
-  bytecode instructions for branching, such as \texttt{br-if-u64-<=}. These
-  branching instructions are marked with \texttt{VM\_NASH\_JUMP} since they may
-  perform a backward jump, though not shown in the figure.}  Bytecode
-definitions which do not start a loop, such as \texttt{uadd\_immediate}, are
-unmodified. The definition of \texttt{br} contains \texttt{VM\_NASH\_JUMP} with
-a parameter \texttt{offset} at the end of definition body. When \texttt{offset}
-was negative, it means a backward jump which is detected as a loop by Nash. When
-\texttt{br} with negative offset was found in interpreted bytecode,
-\texttt{vm\_nash\_engine} looks for a native code with the next IP.\@ Similarly,
-\texttt{VM\_NASH\_CALL} and \texttt{VM\_NASH\_TAIL\_CALL} use its argument
-\texttt{old\_ip} to detect loop from consequent calls to identical IP.\@
+\texttt{call}, and \texttt{VM\_NASH\_TAIL\_CALL} in
+\texttt{tail-call}. Bytecode definitions \texttt{br}, \texttt{call}, and
+\texttt{tail-call} are marked since these bytecode perform a jump, which may
+start a loop.\footnote{Guile has more bytecode instructions for branching,
+  such as \texttt{br-if-u64-<=}. These branching instructions are marked with
+  \texttt{VM\_NASH\_JUMP} since they may perform a backward jump, though not
+  shown in the figure.}  Bytecode definitions which do not start a loop, such
+as \texttt{uadd\_immediate}, are unmodified. The definition of \texttt{br}
+contains \texttt{VM\_NASH\_JUMP} with a parameter \texttt{offset} at the end
+of definition body. When \texttt{offset} was negative, it means a backward
+jump which is detected as a loop by Nash. When \texttt{br} with negative
+offset was found in interpreted bytecode, \texttt{vm\_nash\_engine} looks for
+a native code with the next IP.\@ Similarly, \texttt{VM\_NASH\_CALL} and
+\texttt{VM\_NASH\_TAIL\_CALL} use its argument \texttt{old\_ip} to detect loop
+from consequent calls to identical IP.\@
+
+
 
 %% Sentences describing type check commented out for simplicity.
 %%
@@ -648,7 +654,7 @@ was negative, it means a backward jump which is detected as a loop by Nash. When
 %% saves a Scheme object called \textit{fragment}, which contains compiled
 %% native code and other information such as type information for type check.
 
-If a native code was found, the native code is executed. If not,
+If a native code was found, the native code is executed. Otherwise,
 \texttt{vm\_nash\_engine} increment the counter value for the IP, and if the
 counter value exceeds a threshold parameter, \texttt{vm\_nash\_engine} starts
 recording the bytecode instruction in current loop. For instance,
@@ -657,9 +663,9 @@ bytecode \texttt{(br~-10)} in IP $32$ of
 Figure~\hyperref[fig:bytecode]{\ref{fig:bytecode}}.
 
 Codes used internally in \texttt{VM\_NASH\_JUMP}, \texttt{VM\_NASH\_CALL}, and
-\texttt{VM\_NASH\_TCALL} are mostly shared. One of the differences between these
-three macros is to use different strategy to decide loops as hot, by using
-different values to increment loop counter. For instance,
+\texttt{VM\_NASH\_TCALL} are mostly shared. One of the differences between
+these three macros is to use different strategy to decide loops as hot, by
+using different values to increment loop counter. For instance,
 \texttt{VM\_NASH\_JUMP} may add $2$ to the loop counter, while
 \texttt{VM\_NASH\_CALL} may add $1$, which will result in a setting that
 backward jumps get hot sooner than consequent calls.  \texttt{VM\_NASH\_JUMP},
@@ -672,19 +678,18 @@ engines.
 \begin{figure}
   \centering
   \small
-\begin{verbatim}
-# define NEXT(n)                                \
-  do                                            \
-    {                                           \
-      ip += n;                                  \
-      VM_NASH_MERGE ();                         \
-      ...
-      op = *ip;                                 \
-      goto *jump_table[op & 0xff];              \
-    }                                           \
-  while (0)
-\end{verbatim}
-\caption{Modified definition of \texttt{NEXT}.}
+\begin{Verbatim}
+ # define NEXT(n)                            \textbackslash
+   do \{                                      \textbackslash
+       ip += n;                              \textbackslash
+\textcolor{OliveGreen}{+}      \textcolor{OliveGreen}{VM_NASH_MERGE ();                     \textbackslash}
+       ...
+       op = *ip;                             \textbackslash
+       goto *jump_table[op & 0xff];          \textbackslash
+   \} while (0)
+\end{Verbatim}
+\caption{Modified definition of \texttt{NEXT}. Line starting with \texttt{+} was
+  added for Nash.}
 \label{fig:cnext}
 \end{figure}
 
@@ -693,25 +698,26 @@ recorded bytecode and stack values, and
 Figure~\hyperref[fig:cnext]{\ref{fig:cnext}} shows the modified contents of
 \texttt{NEXT}. When \texttt{vm\_nash\_engine} found a loop, observed bytecode
 and stack values are recorded by
-\texttt{VM\_NASH\_MERGE}. Figure~\hyperref[fig:cnext]{\ref{fig:cnext}} shows how
-the interpretation continues with updating the value of \texttt{ip}, which is a
-variable in \texttt{VM\_NAME} used for bytecode IP. When the value of
-\texttt{ip} match with beginning of the loop, \texttt{VM\_NASH\_MERGE} will stop
-the recording, and pass the recorded data to JIT compiler. The recorded bytecode
-instructions and stack values in Figure~\hyperref[fig:trace]{\ref{fig:trace}}
-were made by running \texttt{sumv-positive} with passing a length 1000
-\texttt{vector} containing random small integer numbers from \texttt{-10} to
-\texttt{10} as argument. The hexadecimal numbers in left are the absolute
-bytecode IP of each bytecode instruction, and the commented out vector in each
-line contains \texttt{SCM} representation of the values in the stack at the time
-of recording.  The first bytecode \texttt{(uadd/immediate 0 6 1)} in
+\texttt{VM\_NASH\_MERGE}. Figure~\hyperref[fig:cnext]{\ref{fig:cnext}} shows
+how the interpretation continues with updating the value of \texttt{ip}, which
+is a variable in \texttt{VM\_NAME} used for bytecode IP. When the value of
+\texttt{ip} match with beginning of the loop, \texttt{VM\_NASH\_MERGE} will
+stop the recording, and pass the recorded data to JIT compiler. The recorded
+bytecode instructions and stack values in
+Figure~\hyperref[fig:trace]{\ref{fig:trace}} were made by running
+\texttt{sumv-positive} with passing a length 1000 \texttt{vector} containing
+random small integer numbers from \texttt{-10} to \texttt{10} as argument. The
+hexadecimal numbers in left are the absolute bytecode IP of each bytecode
+instruction, and the commented out vector in each line contains \texttt{SCM}
+representation of the values in the stack at the time of recording.  The first
+bytecode \texttt{(uadd/immediate 0 6 1)} in
 Figure~\hyperref[fig:trace]{\ref{fig:trace}} is shown at IP offset 22 in
 Figure~\hyperref[fig:bytecode]{\ref{fig:bytecode}}. \texttt{vm\_nash\_engine}
-continued the recording with IP offset 23, 24, 27, 28, and 31. Then at IP offset
-32, the last bytecode \texttt{(br -10)} is recorded and jumped back to IP offset
-22, which is labeled as \texttt{L2} in
-Figure~\hyperref[fig:bytecode]{\ref{fig:bytecode}}. The bytecode IP matched with
-the IP where the recording started, \texttt{vm\_nash\_engine} stopped the
+continued the recording with IP offset 23, 24, 27, 28, and 31. Then at IP
+offset 32, the last bytecode \texttt{(br -10)} is recorded and jumped back to
+IP offset 22, which is labeled as \texttt{L2} in
+Figure~\hyperref[fig:bytecode]{\ref{fig:bytecode}}. The bytecode IP matched
+with the IP where the recording started, \texttt{vm\_nash\_engine} stopped the
 recording. \texttt{VM\_NASH\_MERGE} is defined with empty body when including
 \texttt{vm-engine.c} file for other VM engines.
 
@@ -760,48 +766,48 @@ recording. \texttt{VM\_NASH\_MERGE} is defined with empty body when including
 \section{Nash Compiler}
 \label{sec:compiler}
 
-This section describes the details of JIT compiler in Nash, which is written in
-Scheme. Compiled bytecode of the JIT compiler is executed by
+This section describes the details of JIT compiler in Nash, which is written
+in Scheme. Compiled bytecode of the JIT compiler is executed by
 \texttt{vm\_regular\_engine}.
 
 \subsection{Trace To IR}
 Nash compiles traces to relaxed A-normal form~\cite{flanagan1993essence}
-internal representation (IR) before assigning registers and assembling to native
-code. Figure~\hyperref[fig:anf]{\ref{fig:anf}} shows IR of primitive operations
-compiled from the recorded trace in
+internal representation (IR) before assigning registers and assembling to
+native code. Figure~\hyperref[fig:anf]{\ref{fig:anf}} shows IR of primitive
+operations compiled from the recorded trace in
 Figure~\hyperref[fig:trace]{\ref{fig:trace}}. The IR primitives contains two
-\texttt{lambda} terms, the first block is for prologue, and the second block is
-for loop body. The IR uses \texttt{let*} instead of \texttt{let} to express the
-sequence of computation. Each primitive operation takes two arguments, except
-for \texttt{\%snap} operation. Primitive operations updating a variable, such as
-\texttt{\%add}, has the variable on the left side of expression, which is
-updated by the corresponding operation. Primitive operations without variable
-update contain a symbol \texttt{\_} at the left. The variables starting with the
-letter \texttt{v} indicates that the variable is loaded from current stack. The
-variables starting with the letter \texttt{r} indicates that the variable is for
-temporal use only.
+\texttt{lambda} terms, the first block is for prologue, and the second block
+is for loop body. The IR uses \texttt{let*} instead of \texttt{let} to express
+the sequence of computation. Each primitive operation takes two arguments,
+except for \texttt{\%snap} operation. Primitive operations updating a
+variable, such as \texttt{\%add}, has the variable on the left side of
+expression, which is updated by the corresponding operation. Primitive
+operations without variable update contain a symbol \texttt{\_} at the
+left. The variables starting with the letter \texttt{v} indicates that the
+variable is loaded from current stack. The variables starting with the letter
+\texttt{r} indicates that the variable is for temporal use only.
 
 \subsubsection{Snapshot}
 
-Between recorded bytecode instructions, \texttt{\%snap} expressions may inserted
-to make \textit{snapshot} data. Snapshots contain various information to recover
-the state of \texttt{vm\_nash\_engine} when native code passed the control
-back. Snapshot data includes local indices to store variables, and a bytecode IP
-where the interpretation continue. The expression \texttt{\%snap} takes variable
-number of arguments: the first argument is a \textit{snapshot ID}, which is a
-unique integer number to identify the snapshot in single trace. The rest of the
-arguments are local variables to be stored to current stack. In
-Figure~\hyperref[fig:anf]{\ref{fig:anf}}, Nash inserted \texttt{\%snap}
-expression at the beginning, and before the primitive operations \texttt{\%lt},
-\texttt{\%typeq}, \texttt{\%addov}, and \texttt{\%gt}, which act as guard. The
-primitives \texttt{\%lt} and \texttt{\%gt} does arithmetic less-than and
-greater-than comparisons, respectively, the primitive \texttt{\%typeq} does type
-check with given variable and type, and the primitive \texttt{\%addov} does
-addition with overflow check. When the result of guard differed from the result
-observed at the time of JIT compilation, native code execute the recovering
-steps to setup the state in \texttt{vm\_nash\_engine}, and input program
-continues with bytecode interpreter.
-
+Between recorded bytecode instructions, \texttt{\%snap} expressions may
+inserted to make \textit{snapshot} data. Snapshots contain various information
+to recover the state of \texttt{vm\_nash\_engine} when native code passed the
+control back. Snapshot data includes local indices to store variables, and a
+bytecode IP where the interpretation continue. The expression \texttt{\%snap}
+takes variable number of arguments: the first argument is a \textit{snapshot
+  ID}, which is a unique integer number to identify the snapshot in single
+trace. The rest of the arguments are local variables to be stored to current
+stack. In Figure~\hyperref[fig:anf]{\ref{fig:anf}}, Nash inserted
+\texttt{\%snap} expression at the beginning, and before the primitive
+operations \texttt{\%lt}, \texttt{\%typeq}, \texttt{\%addov}, and
+\texttt{\%gt}, which act as guard. The primitives \texttt{\%lt} and
+\texttt{\%gt} does arithmetic less-than and greater-than comparisons,
+respectively, the primitive \texttt{\%typeq} does type check with given
+variable and type, and the primitive \texttt{\%addov} does addition with
+overflow check. When the result of guard differed from the result observed at
+the time of JIT compilation, native code execute the recovering steps to setup
+the state in \texttt{vm\_nash\_engine}, and input program continues with
+bytecode interpreter.
 
 \subsubsection{Prologue section}
 \label{sec:irprologue}
@@ -809,29 +815,28 @@ continues with bytecode interpreter.
 The prologue section, the first \texttt{lambda} block shown in
 Figure~\hyperref[fig:anf]{\ref{fig:anf}}, loads initial values from the stack
 with \texttt{\%sref} primitive. The first argument number passed to
-\texttt{\%sref} is a local index offset, the second argument is an integer used
-internally to represent the type of expected local in the stack. For instance,
-the value \texttt{1} is for \texttt{fixnum}, which means small integer value in
-Scheme, \texttt{131072} is used for vector object, \texttt{67108864} is for
-\texttt{u64}, which is a non-SCM unsigned 64 bit integer value to alias
-\texttt{scm\_t\_uint64} shown in
-Figure~\hyperref[fig:stackelem]{\ref{fig:stackelem}}, and so on.
+\texttt{\%sref} is a local index offset, the second argument is an integer
+used internally to represent the type of expected local in the stack. For
+instance, the value \texttt{1} is for \texttt{fixnum}, which means small
+integer value in Scheme, \texttt{131072} is used for vector object,
+\texttt{67108864} is for \texttt{u64}, which is a non-SCM unsigned 64 bit
+integer value to alias \texttt{scm\_t\_uint64}, and so on.
 
-Type information are specified from bytecode operation, or from the stack values
-recorded alongside with bytecode instructions. The tc3 tag, described in
-Section~\ref{sec:scmdatatype}, of each value is observed and type check for the
-locals are added when necessary. For instance, in the line containing
-\texttt{(add~1~1~6)} in Figure \hyperref[fig:trace]{\ref{fig:trace}}, the second
-element in the stack is \texttt{\#x2a2}, which is \texttt{1010100010} in
-binary. Nash could decide this value is a small integer, since it has tc3 tag
-\texttt{010}.
+Type information are specified from bytecode operation, or from the stack
+values recorded alongside with bytecode instructions. The tc3 tag, described
+in Section~\ref{sec:scmdatatype}, of each value is observed and type check for
+the locals are added when necessary. For instance, in the line containing
+\texttt{(add~1~1~6)} in Figure \hyperref[fig:trace]{\ref{fig:trace}}, the
+second element in the stack is \texttt{\#x2a2}, which is \texttt{1010100010}
+in binary. Nash could decide this value is a small integer, since it has tc3
+tag \texttt{010}.
 
-The value \texttt{\#f} in \texttt{\%sref} primitive means that there is no need
-for type check, for instance the local is overwritten without referencing. The
-variable \texttt{v0}, which hold local \texttt{0} in above example is
-immediately overwritten by result of \texttt{\%add} primitive with the first
-line of loop body. There is not need to load this local from current stack,
-though such dead-code eliminations are not yet implemented.
+The value \texttt{\#f} in \texttt{\%sref} primitive means that there is no
+need for type check, for instance the local is overwritten without
+referencing. The variable \texttt{v0}, which hold local \texttt{0} in above
+example is immediately overwritten by result of \texttt{\%add} primitive with
+the first line of loop body. There is not need to load this local from current
+stack, though such dead-code eliminations are not yet implemented.
 
 \subsubsection{Loop body section}
 
@@ -850,69 +855,21 @@ the primitive operations for \texttt{vector-ref} follows. The primitive
 operations contain vector index range check, by comparing the length of vector
 with the index value passed to \texttt{vector-ref} instruction. For Scheme
 \texttt{vector} object, Guile uses the first one word to store a \textit{tc7}
-tag and the length of the vector. A tc7 tag is, like tc3 tag, a 7 bits long tag
-value used to distinguish types. The length is left shifted for 8 bits so that
-tc7 tag and the length could fit in single word. Actual vector elements are
-stored from the memory address of the SCM object plus one word.
+tag and the length of the vector. A tc7 tag is, like tc3 tag, a 7 bits long
+tag value used to distinguish types. The length is left shifted for 8 bits so
+that tc7 tag and the length could fit in single word. Actual vector elements
+are stored from the memory address of the SCM object plus one word.
 
 The primitive operation \texttt{\%cref} in line 13 loads a value from Scheme
 heap object with offset 0, then store the loaded value to temporary register
-\texttt{r2}. The \texttt{r2} is passed to \texttt{\%rsh} in line 14, which does
-arithmetic right shift for 8 bits and overwrite the value of \texttt{r2}. Now
-the variable \texttt{r2} contains the reproduced vector length, and compared
-with \texttt{v6}, which is the variable holding local 6, which is the index
-value used in \texttt{vector-ref} bytecode instruction of recorded trace. Line
-16 adds $1$ to \texttt{v6} get offset of vector element. Line 17 does another
-\texttt{\%cref} to load the vector element, and overwrites the value of
-\texttt{v6}.
-
-\paragraph{br-if-u64-\texttt{<}-scm} Line 18 contains a snapshot used by next
-primitive operation \texttt{\%typeq}, which does a type check of \texttt{v6}
-with \texttt{fixnum}. The variable \texttt{v6} is the value loaded from
-\texttt{vector}, which was observed as \texttt{fixnum} at the time of JIT
-compilation. Line 20 shows empty value assigned to empty value. This line used
-to contain a \texttt{\%snap} expression, though the JIT compiler has optimized
-away the snapshot, since the bytecode IP destination in snapshot data was
-identical to the previous snapshot. Nash does few on-the-fly optimizations, such
-as this cached snapshot reuse, duplicated guard elimination, and constant
-folding.  Variable \texttt{v6} is right shifted for 2 bits to move away the tc3
-tag of \texttt{fixnum}, and the result is stored to variable \texttt{r2} in line
-21, to compare with variable \texttt{v3} shown in line 22. Bytecode instruction
-\texttt{br-if-u64-<-scm} takes \texttt{u64} type as first argument, SCM type as
-second argument, and compares the two. The type of variable \texttt{v3} is
-determined at compile time as \texttt{u64}, no type check is done.
-
-\paragraph{add} Line 23 contains a snapshot, which is used
-when arithmetic overflow occurred. Line 24 adds two \texttt{fixnum} values in
-\texttt{v1} and \texttt{v6} with \texttt{\%addov} primitive, and overwrites the
-contents of \texttt{v1}. Type checks for \texttt{v1} and \texttt{v6} are not
-done, since the \texttt{fixnum} type check done with \texttt{\%typeq} for
-\texttt{v6} is still valid, and \texttt{fixnum} type check for \texttt{v1} is
-already done in prologue section. Resulting type from addition of two
-\texttt{fixnum} is again a \texttt{fixnum} unless it overflows, thus type check
-for \texttt{v1} inside loop body is eliminated. The \texttt{\%sub} primitive in
-line 25 moves away the extra tc2 bits added by \texttt{\%addov}.
-
-\paragraph{br-if-u64-\texttt{<}=} Line 26 inserts another snapshot. Then in line
-27, two 64 bit unsigned values in \texttt{v4} and \texttt{v0} are
-compared. Types of variables are determined from the bytecode.
-
-\paragraph{mov} Line 28 simply does a move, and overwrites the contents of
-\texttt{v6} with \texttt{v0}.
-
-\paragraph{br} Then the IR shows a call to \texttt{loop}, which tells that the
-computation jumps to the beginning of loop body section. Loop body of native
-code exit when any of the guards failed.  For instance, when the result returned
-by \texttt{(\%gt~v4~v0)} differed from the result observed at the time of JIT
-compilation, native code will pass the control back to
-\texttt{vm\_nash\_engine}, recover the interpreter state by using snapshot data
-from \texttt{(\%snap~3~v0~v1~v6)} and the bytecode interpretation of input
-program will continue from bytecode IP \texttt{7f4ddb7fc5b0}, which is the jump
-destination of \texttt{(br-if-u64-<=~4~0~\#f~9)} in recorded trace.
-\footnote{ \texttt{7f4ddb7fc5b0 = 7f4ddb7fc8c + (9 * 4)}.  \texttt{7f4ddb7fc8c}
-  is the absolute bytecode IP of \texttt{(br-if-u64-<= 4 0 \#f 9)} shown in
-  recorded trace, $9$ is the offset argument passed to \texttt{br-if-u64-<=},
-  and $4$ is the size of single byte used for bytecode.}
+\texttt{r2}. The \texttt{r2} is passed to \texttt{\%rsh} in line 14, which
+does arithmetic right shift for 8 bits and overwrite the value of
+\texttt{r2}. Now the variable \texttt{r2} contains the reproduced vector
+length, and compared with \texttt{v6}, which is the variable holding local 6,
+which is the index value used in \texttt{vector-ref} bytecode instruction of
+recorded trace. Line 16 adds $1$ to \texttt{v6} get offset of vector
+element. Line 17 does another \texttt{\%cref} to load the vector element, and
+overwrites the value of \texttt{v6}.
 
 \begin{figure}
   \centering
@@ -948,6 +905,55 @@ destination of \texttt{(br-if-u64-<=~4~0~\#f~9)} in recorded trace.
   architecture. Slightly modified from dumped output for displaying purpose.}
 \label{fig:primops}
 \end{figure}
+
+\paragraph{br-if-u64-\texttt{<}-scm} Line 18 contains a snapshot used by next
+primitive operation \texttt{\%typeq}, which does a type check of \texttt{v6}
+with \texttt{fixnum}. The variable \texttt{v6} is the value loaded from
+\texttt{vector}, which was observed as \texttt{fixnum} at the time of JIT
+compilation. Line 20 shows empty value assigned to empty value. This line used
+to contain a \texttt{\%snap} expression, though the JIT compiler has optimized
+away the snapshot, since the bytecode IP destination in snapshot data was
+identical to the previous snapshot. Nash does few on-the-fly optimizations,
+such as this cached snapshot reuse, duplicated guard elimination, and constant
+folding.  Variable \texttt{v6} is right shifted for 2 bits to move away the
+tc3 tag of \texttt{fixnum}, and the result is stored to variable \texttt{r2}
+in line 21, to compare with variable \texttt{v3} shown in line 22. Bytecode
+instruction \texttt{br-if-u64-<-scm} takes \texttt{u64} type as first
+argument, SCM type as second argument, and compares the two. The type of
+variable \texttt{v3} is determined at compile time as \texttt{u64}, no type
+check is done.
+
+\paragraph{add} Line 23 contains a snapshot, which is used
+when arithmetic overflow occurred. Line 24 adds two \texttt{fixnum} values in
+\texttt{v1} and \texttt{v6} with \texttt{\%addov} primitive, and overwrites
+the contents of \texttt{v1}. Type checks for \texttt{v1} and \texttt{v6} are
+not done, since the \texttt{fixnum} type check done with \texttt{\%typeq} for
+\texttt{v6} is still valid, and \texttt{fixnum} type check for \texttt{v1} is
+already done in prologue section. Resulting type from addition of two
+\texttt{fixnum} is again a \texttt{fixnum} unless it overflows, thus type
+check for \texttt{v1} inside loop body is eliminated. The \texttt{\%sub}
+primitive in line 25 moves away the extra tc2 bits added by \texttt{\%addov}.
+
+\paragraph{br-if-u64-\texttt{<}=} Line 26 inserts another snapshot. Then in line
+27, two 64 bit unsigned values in \texttt{v4} and \texttt{v0} are
+compared. Types of variables are determined from the bytecode.
+
+\paragraph{mov} Line 28 simply does a move, and overwrites the contents of
+\texttt{v6} with \texttt{v0}.
+
+\paragraph{br} Then the IR shows a call to \texttt{loop}, which tells that the
+computation jumps to the beginning of loop body section. Loop body of native
+code exit when any of the guards failed.  For instance, when the result
+returned by \texttt{(\%gt~v4~v0)} differed from the result observed at the
+time of JIT compilation, native code will pass the control back to
+\texttt{vm\_nash\_engine}, recover the interpreter state by using snapshot
+data from \texttt{(\%snap~3~v0~v1~v6)} and the bytecode interpretation of
+input program will continue from bytecode IP \texttt{7f4ddb7fc5b0}, which is
+the jump destination of \texttt{(br-if-u64-<=~4~0~\#f~9)} in recorded trace.
+\footnote{ \texttt{7f4ddb7fc5b0 = 7f4ddb7fc8c + (9 * 4)}.  \texttt{7f4ddb7fc8c}
+  is the absolute bytecode IP of \texttt{(br-if-u64-<= 4 0 \#f 9)} shown in
+  recorded trace, $9$ is the offset argument passed to \texttt{br-if-u64-<=},
+  and $4$ is the size of single byte used for bytecode.}
 
 \begin{figure}
   \centering
@@ -991,13 +997,14 @@ loop:
 \end{figure}
 
 \subsection{IR To Native Code}
+
 Figure~\hyperref[fig:primops]{\ref{fig:primops}} shows IR after register
 assignment. The numbers in left of each line, which are omitted for snapshot
 data, tells primitive operation number. The variables for primitive operations
-in Figure~\hyperref[fig:primops]{\ref{fig:primops}} are using register names in
-x86-64 architecture. Nash uses a module defining architecture specific register
-variables. At the time of writing, x86-64 implementation is the only one which
-exist.
+in Figure~\hyperref[fig:primops]{\ref{fig:primops}} are using register names
+in x86-64 architecture. Nash uses a module defining architecture specific
+register variables. At the time of writing, x86-64 implementation is the only
+one which exist.
 
 Nash uses GNU lightning as an assembler backend. GNU lightning is a JIT
 compilation library, which runs under various architectures including aarch64,
@@ -1008,9 +1015,9 @@ resulting bindings are called from Scheme code under
 
 Figure~\hyperref[fig:ncode]{\ref{fig:ncode}} shows dumped native code of
 primitive operations shown in Figure~\hyperref[fig:primops]{\ref{fig:primops}}
-under x86-64 architecture. The native code contains a mark to show the beginning
-of loop body with \texttt{loop:}, and corresponding snapshot ID number for jump
-instructions.
+under x86-64 architecture. The native code contains a mark to show the
+beginning of loop body with \texttt{loop:}, and corresponding snapshot ID
+number for jump instructions.
 
 Native code compiled in Nash contains debug symbols to interact with JIT
 compilation interface in GDB~\cite{stallman2002debugging}, a well-known
@@ -1035,17 +1042,17 @@ be turned on with command line option when invoking \texttt{guile} executable.
 
 \subsection{Settings}
 
-Performance of Nash is evaluated with cross platform benchmark suite from Pycket
-project. The source code of the benchmarks originate from Larceny and Gambit
-project. Some modifications were made to the Pycket version. Benchmarks
+Performance of Nash is evaluated with cross platform benchmark suite from
+Pycket project. The source code of the benchmarks originate from Larceny and
+Gambit project. Some modifications were made to the Pycket version. Benchmarks
 \texttt{bv2string}, \texttt{ntakl} and \texttt{quicksort} were added, which
 exist in the original Larceny and Gambit benchmark suite. Iteration counts for
 \texttt{ctak}, \texttt{fft}, \texttt{pnpoly}, \texttt{fibc}, and \texttt{ray}
-are decreased, which were taking long execution time in Guile's VM-regular. The
-modified benchmark suite contains 57 programs. Total elapsed time of each
-program including JIT warm up time was measured. The benchmark results were
-taken under a machine with Intel Core-i5 3427-U and 8GB of memory, running Arch
-Linux, Linux kernel 4.5.4.
+are decreased, which were taking long execution time in Guile's
+VM-regular. The modified benchmark suite contains 57 programs. Total elapsed
+time of each program including JIT warm up time was measured. The benchmark
+results were taken under a machine with Intel Core-i5 3427-U and 8GB of
+memory, running Arch Linux, Linux kernel 4.5.4.
 
 \subsection{Results}
 \label{sec:results}
@@ -1096,18 +1103,18 @@ Some of the benchmarks, such as \texttt{sum1}, \texttt{pi}, \texttt{ctak},
 \texttt{string}, and \texttt{fibc}, showed similar performance in Nash,
 VM-regular, and Guile interpreter. In these benchmarks, large amount of time
 were spent in procedures written in C functions, such as \texttt{read},
-\texttt{string-append}, and arithmetic procedures for large numbers.  All three
-implementations are calling the same underlying C functions, thus the
+\texttt{string-append}, and arithmetic procedures for large numbers.  All
+three implementations are calling the same underlying C functions, thus the
 differences in performance results were relatively small.
 
-In benchmarks with many continuation object creations, such as \texttt{ctak} and
-\texttt{fibc}, Nash runs slower than VM regular. Nash implements
+In benchmarks with many continuation object creations, such as \texttt{ctak}
+and \texttt{fibc}, Nash runs slower than VM regular. Nash implements
 \texttt{call/cc} with C function to keep compatibility with C interface of
 libguile, which did not lead to performance improvement.  Performance overhead
-caused by JIT compilation and stack state recovery have slowed down the overall
-performance.  Benchmarks \texttt{parsing} and \texttt{dynamic} did not contain
-creation of continuation objects, though these benchmarks contained lots of
-conditional branches, which caused a large amount of JIT compilation overhead.
+caused by JIT compilation and stack state recovery have slowed down the
+overall performance.  Benchmarks \texttt{parsing} and \texttt{dynamic} did not
+contain creation of continuation objects, though these benchmarks had large
+amount of JIT compilation overhead caused by conditional branches.
 
 \subsubsection{Comparison With Native Code Compilers}
 
@@ -1127,31 +1134,22 @@ conditional branches, which caused a large amount of JIT compilation overhead.
     strategy \\
     \toprule
     Chez (9.4.1) &  0.148 & 57 & & Incremental \\
-    Bigloo (4.2c) & 0.236 & 54 & pi, trav1, trav2 & Scheme to C \\
+    Bigloo (4.2c) & 0.236 & 54 & pi, trav1, trav2 & AOT via C \\
     Ikarus (0.0.4-rc1) & 0.244 & 56 & parsing & Incremental \\
-    Pycket (git 5f98bf3) & 0.252 & 57 & & AOT AST + tracing JIT \\
-    Gambit (4.8.5) & 0.274 & 56 & gcold & Scheme to C \\
+    Pycket (git 5f98bf3) & 0.252 & 57 & & AOT + tracing JIT \\
+    Gambit (4.8.5) & 0.274 & 56 & gcold & AOT via C \\
     Larceny (0.99) &  0.301 & 57 & & Incremental \\
-    Racket  (6.6) &  0.324 & 57 & & AOT bytecode + method JIT \\
-    Nash & 0.400 & 57 & & AOT bytecode + tracing JIT \\
-    Chicken (4.11.0) & 0.448 & 54 & gcold, maze, pi & Scheme to C \\
-    MIT (9.2) &  0.486 & 55 & parsing, nucleic & File based \\
+    Racket  (6.6) &  0.324 & 57 & & AOT/incremental + method JIT \\
+    Nash & 0.400 & 57 & & AOT/incremental + tracing JIT \\
+    Chicken (4.11.0) & 0.448 & 54 & gcold, maze, pi & AOT via C \\
+    MIT (9.2) &  0.486 & 55 & parsing, nucleic & AOT \\
   \end{tabular}
-  \caption{Scheme native code compilers. Geometric means of benchmark results
-    normalized to VM-regular. Geometric means are calculated from valid results
-    only, column \texttt{N} shows the number of valid results.}
+  \caption{List of scheme native code compilers used for benchmark. Geometric
+    means of benchmark results normalized to VM-regular, smaller is
+    better. Geometric means are calculated from valid results only, column
+    \texttt{N} shows the number of valid results.}
 \label{tab:nativecomp}
 \end{table*}
-
-\begin{table}
-  \centering
-  \input{tracingjits.tex}
-  \caption{Selected benchmark results from
-    Figure~\hyperref[fig:dist]{\ref{fig:dist}}. Showing geometric standard
-    deviation, geometric standard score of Nash, and geometric standard score of
-    Pycket. Lower standard score is better.}
-\label{tab:tracingjits}
-\end{table}
 
 The benchmark results were taken with various Scheme native code compilers.
 Table~\hyperref[tab:impls]{\ref{tab:nativecomp}} summarizes benchmark results
@@ -1163,69 +1161,52 @@ benchmark results and geometric standard scores from Nash and Pycket. Table
 \hyperref[tab:tracingjits]{\ref{tab:tracingjits}} shows selected benchmark
 results in numbers.
 
-Implementations using tracing JIT have some characteristics in common. Both Nash
-and Pycket performed well with benchmarks containing tight loops. In
+\begin{table}
+  \centering
+  \input{tracingjits.inc}
+  \caption{Selected benchmark results from
+    Figure~\hyperref[fig:dist]{\ref{fig:dist}}. Showing geometric standard
+    deviation, geometric standard score of Nash, and geometric standard score
+    of Pycket. Lower standard score is better.}
+\label{tab:tracingjits}
+\end{table}
+
+Implementations using tracing JIT shared some characteristics. Both Nash and
+Pycket performed well with benchmarks containing tight loops. In
 \texttt{sumfp}, \texttt{mbrot}, \texttt{sum}, \texttt{array1} and
 \texttt{sumloop}, Pycket and Nash are the fastest and second to the fastest
-implementations.  In \texttt{matrix}, \texttt{peval} and \texttt{dynamic}, Nash
-and Pycket performed badly. These benchmarks contained lots of conditional
-branches caused from data dependent control flows, which is a known weakness of
-tracing JIT \citep{bauman2015pycket}.
+implementations.  In \texttt{matrix}, \texttt{peval} and \texttt{dynamic},
+Nash and Pycket performed badly. These benchmarks contained lots of
+conditional branches caused from data dependent control flows, which is a
+known weakness of tracing JIT \citep{bauman2015pycket}.
 
 Pycket performed well with benchmark containing extensive use of
 \texttt{call/cc}, such as \texttt{fibc} and \texttt{ctak}. The geometric
-standard deviation of \texttt{fibc} and \texttt{ctak} are relatively larger than
-other benchmarks. The implementation of continuation differed across native code
-compilers, which lead to wider range of benchmark results. As mentioned in
-Section~\ref{sec:guilecomp}, the performance of Nash in the benchmarks
-containing \texttt{call/cc} are slower than VM-regular.
+standard deviation of \texttt{fibc} and \texttt{ctak} are relatively larger
+than other benchmarks. The implementation of continuation differed across
+native code compilers, which lead to wider range of benchmark results. As
+mentioned in Section~\ref{sec:guilecomp}, the performance of Nash in the
+benchmarks containing \texttt{call/cc} are slower than VM-regular.
 
 In \texttt{fibfp}, \texttt{simplex}, and \texttt{nucleic}, Pycket was the
-fastest implementation and Nash was the slowest implementation. All three of the
-benchmarks contained Scheme flonum values, which were efficiently handled in
-Pycket but not in Nash.  Nash performed badly in \texttt{parsing} benchmark
+fastest implementation and Nash was the slowest implementation. All three of
+the benchmarks contained Scheme flonum values, which were efficiently handled
+in Pycket but not in Nash.  Nash performed badly in \texttt{parsing} benchmark
 also, but the performance result from Pycket was the median value. Performance
 improvement for \texttt{parsing} benchmark is a known problem for Nash which
 requires further efforts.
 
-\section{Related Work}
-\label{sec:related}
-Implementation of Nash was inspired from pioneers in tracing JIT field. Nash
-does type checks in VM interpreter before running compiled native code, which
-was done in TraceMonkey~\cite{gal2009trace} with similar design.
-
-The mechanism in interpreter to record instructions and detect hot loops are
-inspired from Pypy and RPython~\cite{bolz2009tracing}. The way how Nash mark
-\texttt{NEXT} and loop starting bytecode definitions are influenced by the
-approach used in interpreter written with RPython.  RPython provides a framework
-to define a new language by writing an interpreter, while Guile provides a
-framework to define a new language by writing a compiler.  Use of A-normal
-form~\cite{flanagan1993essence} was inspired from
-Pycket~\cite{bauman2015pycket}. Though Pycket expands the source code and
-generates JSON data, and parses it to AST for execution. Both Nash and Pycket
-use tracing JIT in its implementation. Results shown in
-Section~\ref{sec:evaluation} proved that Pycket is generally faster than Nash.
-However, Pycket is designed as a batch file compiler. It lacks REPL, concurrent
-thread programming support, and interfaces for extension language use.
-
-Design of snapshot was inspired from LuaJIT~\cite{pall2009ip}. LuaJIT uses more
-sophisticated approach and compressed snapshot data. LuaJIT used NaN-tagging,
-which enables efficient handling of unboxed floating point numbers. Guile once
-had an attempt to use NaN-tagging~\cite{wingo2011value}, though the attempt
-wasn't merged to Guile source code, due to supporting conservative garbage
-collector under 32 bit architectures.
-
 \section{Limitations and Future Work}
 \label{sec:future}
 
-Nash is still an experimental implementation, still has a lot of space for
+Nash is still an experimental implementation, has a lot of space for
 improvement. Some of the possibilities for future works follows.
 
 \paragraph{Support more bytecode instructions} Nash still have bytecode
 instructions which are not implemented at all, such as \texttt{prompt} and
 \texttt{abort} used for delimited continuation, or partially implemented, such
-as arithmetic operations. Arithmetic operations for multi-precision numbers and
-complex numbers are not yet implemented. When JIT compiler encountered
+as arithmetic operations. Arithmetic operations for multi-precision numbers
+and complex numbers are not yet implemented. When JIT compiler encountered
 unsupported bytecode, it aborts the work and falls back to
 \texttt{vm\_nash\_engine}.
 
@@ -1233,12 +1214,13 @@ unsupported bytecode, it aborts the work and falls back to
 tail-calls, and consequent calls for non-tail-call recursion
 (\textit{down-recursion}\footnote{Consequent calls to procedure are called as
   down-recursion in Nash, because Guile's stack grows down}), though not with
-consequent returns from non-tail-call recursions (\textit{up-recursion})
-yet. Nash does not detect \textit{looping side traces}. Side trace start from
-frequently taken exit in native code. Side traces are usually patched to
-existing trace when \texttt{vm\_nash\_engine} encountered beginning bytecode IP
-of existing trace. In looping side trace, bytecode instructions loops inside the
-side trace instead of patched back.
+consequent returns from non-tail-call recursions (\textit{up-recursion}) yet.
+
+%% Nash does not detect \textit{looping side traces}. Side trace start from
+%% frequently taken exit in native code. Side traces are usually patched to
+%% existing trace when \texttt{vm\_nash\_engine} encountered beginning
+%% bytecode IP of existing trace. In looping side trace, bytecode instructions
+%% loops inside the side trace instead of patched back.
 
 \paragraph{Optimize IR} Nash does only a few IR level
 optimizations. In prologue section of IR shown in
@@ -1257,17 +1239,45 @@ exceed certain threshold. These thresholds mechanism are sometime called
 \textit{blacklisting} of trace. Nash could take more sophisticated approach to
 blacklist unwanted traces.
 
+\section{Related Work}
+\label{sec:related}
+Implementation of Nash was inspired from pioneers in tracing JIT field. Nash
+does type checks in VM interpreter before running compiled native code, which
+was done in TraceMonkey~\cite{gal2009trace} with similar design.
+
+The mechanism in interpreter to record instructions and detect hot loops are
+inspired from Pypy and RPython~\cite{bolz2009tracing}. The way how Nash mark
+\texttt{NEXT} and loop starting bytecode definitions are influenced by the
+approach used in interpreter written with RPython.  RPython provides a
+framework to define a new language by writing an interpreter, while Guile
+provides a framework to define a new language by writing a compiler.  Use of
+A-normal form~\cite{flanagan1993essence} was inspired from
+Pycket~\cite{bauman2015pycket}. Though Pycket expands the source code and
+generates JSON data, and parses it to AST for execution. Both Nash and Pycket
+use tracing JIT in its implementation. Results shown in
+Section~\ref{sec:evaluation} proved that Pycket is generally faster than Nash.
+However, Pycket is designed as a batch file compiler with single threaded
+computation, lacks REPL and FFI support.
+
+Design of snapshot was inspired from LuaJIT~\cite{pall2009ip}. LuaJIT uses
+more sophisticated approach and compressed snapshot data. LuaJIT used
+NaN-tagging, which enables efficient handling of unboxed floating point
+numbers. Guile once had an attempt to use NaN-tagging~\cite{wingo2011value},
+though the attempt wasn't merged to Guile source code, due to supporting
+conservative garbage collector under 32 bit architectures.
+
 \section{Conclusion}
 \label{sec:conclusion}
 This paper has shown how Nash is designed. Nash reused existing bytecode
-interpreter in Guile, turned it to a trace recording interpreter with few small
-modifications. Nash coexist with existing VM, which is used for JIT compiler
-written in Scheme. Existing bytecode compiled by Guile are traced, recorded and
-compiled to native code. Performance comparison between Nash, Guile's existing
-VM, and various Scheme compilers were done. With keeping itself as an extension
-language, Nash showed significant speed ups in programs with tight loops
-compared to Guile's existing VM, and closer performance with Scheme
-implementation with native compiler in overall performance.
+interpreter in Guile, turned it to a trace recording interpreter with few
+small modifications. Nash coexist with existing VM, which is used for JIT
+compiler written in Scheme. Existing bytecode compiled by Guile are traced,
+recorded and compiled to native code. Performance comparison between Nash,
+Guile's existing VM, and various Scheme compilers were done with 57
+benchmarks. With keeping itself as an extension language, Nash showed
+significant speed ups in programs with tight loops, and achieved competitive
+speed with Scheme implementations with native code compiler in overall
+performance.
 
 %% \appendix
 %% \section{Appendix: title}
@@ -1293,7 +1303,11 @@ source developers.
 
 \end{document}
 
-%%  LocalWords:  AOT Pycket ANF TinyScheme Gauch Ypsilon SCM disassembler tc VM
-%%  LocalWords:  typedef Immediates immediates LuaJIT Pypy Lua Rpython fixnum
-%%  LocalWords:  RPython backend sparc powerpc mips aarch ia TraceMonkey JSON
-%%  LocalWords:  AST unboxed NaN bytecode JIT TCALL untagging REPL
+%%  LocalWords: AOT Pycket ANF TinyScheme Gauch Ypsilon SCM disassembler tc VM
+%%  LocalWords: typedef Immediates immediates LuaJIT Pypy Lua Rpython fixnum
+%%  LocalWords: RPython backend sparc powerpc mips aarch ia TraceMonkey JSON
+%%  LocalWords: AST unboxed NaN bytecode JIT TCALL untagging REPL
+
+%% Local Variables:
+%% fill-column: 78
+%% End:

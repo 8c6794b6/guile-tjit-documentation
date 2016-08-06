@@ -304,7 +304,7 @@ true, otherwise sorts alphabetically by benchmark name."
    (sort (hash-map->list cons standard-scores) compare-tjit-scores)))
 
 (define (print-tex-table products missings standard-scores)
-  (call-with-output-file "tracingjits.tex"
+  (call-with-output-file "tracingjits.inc"
     (lambda (port)
       (define (floored-int n)
         (inexact->exact (floor n)))

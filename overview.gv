@@ -1,0 +1,40 @@
+digraph Overview
+{
+        // rankdir=LR;
+        // size="8,5";
+        // margin="1"
+        nodesep=1.3
+
+        // layout=twopi
+        layout=circo
+
+        node [width=1,shape=box,fixedsize=true,style="rounded,filled,bold",fontname="Helvetica"];
+
+        Start [fillcolor=black,shape=circle,label="",width=0.2,height=0.2];
+        Interpret [fillcolor="#bfdcec"];
+        Record [fillcolor="#fbf8d0"];
+        Compile [fillcolor="#f9c7c3"];
+        Native [fillcolor="#bfe7dc"];
+        End [fillcolor=black,shape=doublecircle,label="",width=0.2];
+
+        // twopi-sepcific
+        // root=Interpret
+        // ranksep=2
+        // ranksep=1.5
+
+        // circo-specific
+        root=Interpret
+        overlap=scale
+        mindist=0.6
+
+        edge [color="#9e9e9e",style=bold,fontname="Helvetica"]
+        Start -> Interpret [taillabel="1",labeldistance=2.5,labelangle=-25]
+        Interpret -> Record [headlabel="2",labeldistance=2,labelangle=-30]
+        Record -> Compile [headlabel="3",labeldistance=3.5]
+        Compile -> Interpret [taillabel="4",labeldistance=1.5,labelangle=50]
+        Interpret -> Native [headlabel="5",labeldistance=2.3]
+        Native -> Interpret [taillabel="6",labeldistance=2.5,labelangle=30]
+        Interpret -> End [label="7"]
+        // edge [color="#9e9e9e",style="dashed,bold"]
+        // Compile -> Native [label="Emit"]
+}

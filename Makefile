@@ -19,6 +19,9 @@ dist.eps: dist.plot dist.dat
 hist.eps: hist.plot hist.dat
 	gnuplot -e "outfile='hist.eps'" hist.plot
 
+overview.eps: overview.gv
+	dot -Teps $< -o $@
+
 dist.dat hist.dat: stat.scm
 	${GUILE} -e main stat.scm ${DATA}
 

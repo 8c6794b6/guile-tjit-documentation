@@ -3,7 +3,7 @@
 
 # set terminal canvas enhanced size 1560,520 font "Helvetica,12"
 # set terminal png enhanced size 1400,600
-set terminal postscript eps enhanced color size 6,2.4 font "Helvetica,11"
+set terminal postscript eps enhanced color size 5.8,2.4 font "Helvetica,11"
 if (!exists("outfile")) outfile='dist.eps'
 set output outfile
 
