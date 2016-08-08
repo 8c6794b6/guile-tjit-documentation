@@ -980,7 +980,7 @@ memory, running Arch Linux, Linux kernel 4.5.4.
   \end{tabular}
   \caption{Selected benchmark results from
     Figure~\hyperref[fig:bench]{\ref{fig:bench}} and geometric mean of the
-    benchmarks shown in numbers.}
+    benchmarks, shown in numbers.}
 \label{tab:compguile}
 \end{table}
 
@@ -988,7 +988,8 @@ Figure~\ref{fig:bench} shows total times of benchmark results of Nash and
 Guile's plain interpreter, normalized to Guile's VM-regular, in logarithmic
 scale.  The Guile interpreter runs Scheme source code without bytecode
 compilation.  Table~\hyperref[tab:compguile]{\ref{tab:compguile}} contains
-selected benchmark results and geometric means of the benchmarks in numbers.
+selected benchmark results and geometric means of the benchmark results in
+numbers.
 
 Nash achieved significant performance improvements in benchmark programs
 containing tight loop with Scheme flonum values, such as \texttt{sumfp} and
@@ -1079,19 +1080,17 @@ results in numbers.
 Implementations using tracing JIT had some characteristics in common. Both
 Nash and Pycket performed well with benchmarks containing tight loops. In
 \texttt{sumfp}, \texttt{mbrot}, \texttt{sum}, \texttt{array1} and
-\texttt{sumloop}, Pycket and Nash are the fastest and second to the fastest
-implementations.  In \texttt{matrix}, \texttt{peval} and \texttt{dynamic},
-Nash and Pycket performed badly. These benchmarks contained lots of
-conditional branches caused from data dependent control flows, which is a
-known weakness of tracing JIT \citep{bauman2015pycket}.
+\texttt{sumloop}, Pycket and Nash are the fastest and second to the fastest.
+In \texttt{matrix}, \texttt{peval} and \texttt{dynamic}, Nash and Pycket
+performed badly. These benchmarks contained lots of conditional branches
+caused from data dependent control flows, which is a known weakness of tracing
+JIT \citep{bauman2015pycket}.
 
 Pycket performed well with benchmark containing extensive use of
 \texttt{call/cc}, such as \texttt{fibc} and \texttt{ctak}. The geometric
 standard deviation of \texttt{fibc} and \texttt{ctak} are relatively larger
 than other benchmarks. The implementation of continuation differed across
-native code compilers, which lead to wider range of benchmark results. As
-mentioned in Section~\ref{sec:guilecomp}, the performance of Nash in the
-benchmarks containing \texttt{call/cc} are slower than VM-regular.
+native code compilers, which lead to wider range of benchmark results.
 
 In \texttt{fibfp}, \texttt{simplex}, and \texttt{nucleic}, Pycket was the
 fastest implementation and Nash was the slowest implementation. All three of
@@ -1111,9 +1110,9 @@ requires further efforts.
 \label{sec:future}
 
 Nash is still an experimental implementation, has a lot of space for
-improvement. Some of the possibilities for future works follows.
+improvements. Some of the possibilities for future works follows.
 
-\paragraph{Support more bytecode instructions} Nash still have bytecode
+\paragraph{Support more bytecode instructions} Nash still has bytecode
 instructions which are not implemented at all, such as \texttt{prompt} and
 \texttt{abort} used for delimited continuation, or partially implemented, such
 as arithmetic operations. Arithmetic operations for multi-precision numbers
@@ -1136,15 +1135,15 @@ consequent returns from non-tail-call recursions (\textit{up-recursion}) yet.
 \paragraph{Optimize IR} Nash does only a few IR level
 optimizations. In prologue section of IR shown in
 Section~\hyperref[sec:irprologue]{\ref{sec:irprologue}}, unnecessary load from
-stack exist, which could be omitted by dead-code elimination. More optimizations
-could be done, such as loop invariant code motion, escape analysis, allocation
-removals, and so on. Also, Nash currently uses naive method to assign
-registers. More sophisticated method such as Linear-Scan register
-allocation~\cite{poletto1999linear} could be used.
+stack exist, which could be omitted by dead-code elimination. More
+optimizations could be done, such as loop invariant code motion, escape
+analysis, allocation removals, and so on. Also, Nash currently uses naive
+method to assign registers. More sophisticated method such as Linear-Scan
+register allocation~\cite{poletto1999linear} could be used.
 
 \paragraph{Blacklist} Benchmarks such as \texttt{parsing} and
 \texttt{dynamic} were slower than Guile VM-regular. Programs containing large
-number of branching conditions need some treatments to perform well under
+amount of branching conditions need some treatments to perform well under
 tracing JIT.\@ One approach is to limit the JIT compilation when branching
 exceed certain threshold. These thresholds mechanism are sometime called
 \textit{blacklisting} of trace. Nash could take more sophisticated approach to
@@ -1156,10 +1155,10 @@ Implementation of Nash was inspired from pioneers in tracing JIT field. Nash
 does type checks in VM interpreter before running compiled native code, which
 was done in TraceMonkey~\cite{gal2009trace} with similar design.
 
-The mechanism in interpreter to record instructions and detect hot loops are
-inspired from Pypy and RPython~\cite{bolz2009tracing}. The way how Nash mark
-\texttt{NEXT} and loop starting bytecode definitions are influenced by the
-approach used in interpreter written with RPython.  RPython provides a
+The mechanisms in interpreter to record instructions and to detect hot loops
+were inspired from Pypy and RPython~\cite{bolz2009tracing}. The way how Nash
+marks \texttt{NEXT} and loop starting bytecode definitions are influenced by
+the approach used in interpreters written with RPython.  RPython provides a
 framework to define a new language by writing an interpreter, while Guile
 provides a framework to define a new language by writing a compiler.  Use of
 A-normal form~\cite{flanagan1993essence} was inspired from
