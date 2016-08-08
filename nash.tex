@@ -382,18 +382,18 @@ instructions. IP offset 24 may skip \texttt{(add 1 1 6)} instruction at IP
 offset 27. IP offset 28 may jump to \texttt{L6} to exit from the loop and
 return the value to the caller of \texttt{sumv-positive}.
 
-\section{Nash Interpreter}
-\label{sec:interpreter}
-
-\subsection{Nash Overview}
-\label{sec:overview}
-
 \begin{figure}
   \centering
   \includegraphics[width=0.45 \textwidth]{overview}
   \caption{A flowchart diagram showing program execution in Nash.}
 \label{fig:overview}
 \end{figure}
+
+\section{Nash Interpreter}
+\label{sec:interpreter}
+
+\subsection{Nash Overview}
+\label{sec:overview}
 
 Nash is designed as a drop-in replacement for VM-regular, could be used to run
 scripts, has REPL, and could be embedded in a C program as an extension
@@ -428,11 +428,11 @@ code. This design enables defining multiple VM engine in few lines of C
 codes. As of Guile 2.1.2, there are two VM engines, one named
 \texttt{vm\_regular\_engine} which is used by VM-regular to interpret
 bytecode, and another named \texttt{vm\_debug\_engine} which is used for
-debugging bytecode interpretation. A single function named \texttt{VM\_NAME}
-is defined in \texttt{vm-engine.c}.  When including \texttt{vm-engine.c},
-\texttt{VM\_NAME} is defined with unique literal. The following C codes are
-written in other file than \texttt{vm-engine.c} to define
-\texttt{vm\_regular\_engine} and \texttt{vm\_debug\_engine}:
+debugging. A single function named \texttt{VM\_NAME} is defined in
+\texttt{vm-engine.c}.  When including \texttt{vm-engine.c}, \texttt{VM\_NAME}
+is defined with unique literal. The following C codes are written in other
+file than \texttt{vm-engine.c} to define \texttt{vm\_regular\_engine} and
+\texttt{vm\_debug\_engine}:
 
 \begin{verbatim}
   #define VM_NAME vm_regular_engine
@@ -454,12 +454,12 @@ instruction. \texttt{VM\_DEFINE\_OP} macro fills in the jump table used by
   supports label as values (computed \texttt{goto}).}  Some of the
 instructions continue the interpretation with \texttt{NEXT} using constant
 offset value. For instance, \texttt{uadd\_immediate} instruction always
-progresses to the bytecode stored at $1$ byte next from the current IP, thus
-the \texttt{NEXT} macro takes constant value $1$. Some instructions use offset
-value specified by argument, such as \texttt{(br -10)} shown in
+progress to the bytecode stored at $1$ byte next from the current IP, thus the
+\texttt{NEXT} macro takes constant value $1$. Some instructions use offset
+value specified from argument, such as \texttt{(br -10)} shown in
 Figure~\hyperref[fig:bytecode]{\ref{fig:bytecode}}.  The bytecode interpreter
 in Nash uses the same \texttt{vm-engine.c} file. The file is included once
-more with similar code to below:
+more with following codes:
 
 \begin{verbatim}
   #define VM_NAME vm_nash_engine
@@ -513,43 +513,64 @@ native code, and \texttt{VM\_NASH\_MERGE} to record instructions.
 
 Figure~\hyperref[fig:vmnamenash]{\ref{fig:vmnamenash}} shows a snippet
 containing modifications made to \texttt{VM\_NAME}. \texttt{VM\_NASH\_JUMP} is
-used in definition body of \texttt{br}, \texttt{VM\_NASH\_CALL} in
+in the definition body of \texttt{br}, \texttt{VM\_NASH\_CALL} in
 \texttt{call}, and \texttt{VM\_NASH\_TAIL\_CALL} in
 \texttt{tail-call}. Bytecode definitions \texttt{br}, \texttt{call}, and
-\texttt{tail-call} are marked since these bytecode perform a jump, which may
-start a loop.\footnote{Guile has more bytecode instructions for branching,
-  such as \texttt{br-if-u64-<=}. These branching instructions are marked with
+\texttt{tail-call} were marked since these bytecode perform jumps to start
+loops.\footnote{Guile has more bytecode instructions for branching, such as
+  \texttt{br-if-u64-<=}. These branching instructions are marked with
   \texttt{VM\_NASH\_JUMP} since they may perform a backward jump, though not
   shown in the figure.}  Bytecode definitions which do not start a loop, such
 as \texttt{uadd\_immediate}, are unmodified. The definition of \texttt{br}
-contains \texttt{VM\_NASH\_JUMP} with a parameter \texttt{offset} at the end
-of definition body. When \texttt{offset} was negative, it means a backward
-jump which is detected as a loop by Nash. When \texttt{br} with negative
-offset was found in interpreted bytecode, \texttt{vm\_nash\_engine} looks for
-a native code with the next IP.\@ Similarly, \texttt{VM\_NASH\_CALL} and
-\texttt{VM\_NASH\_TAIL\_CALL} use its argument \texttt{old\_ip} to detect loop
-from consequent calls and tail-calls to identical IP, respectively.\@
-
-If a native code was found, the native code is executed. Otherwise,
-\texttt{vm\_nash\_engine} increment the counter value for the IP, and if the
+contains \texttt{VM\_NASH\_JUMP} with a parameter \texttt{offset}. When the
+\texttt{offset} was negative, the backward jump will be detected as a loop by
+Nash. When \texttt{br} with negative offset was found in interpreted bytecode,
+\texttt{VM\_NASH\_JUMP} looks for a native code with the next IP.\@ If a
+native code was found, the native code is executed. Otherwise,
+\texttt{VM\_NASH\_JUMP} increment the counter value for the IP, and if the
 counter value exceeds a threshold parameter, \texttt{vm\_nash\_engine} starts
-recording the bytecode instruction in current loop.
+recording the bytecode instruction in current loop.  Similarly,
+\texttt{VM\_NASH\_CALL} and \texttt{VM\_NASH\_TAIL\_CALL} use its argument
+\texttt{old\_ip} to detect loops from consequent calls and tail-calls,
+respectively.\@
 
-%% For instance,
-%% \texttt{vm\_nash\_engine} can find the loop in \texttt{sumv-positive} from the
-%% bytecode \texttt{(br~-10)} in IP $32$ of
-%% Figure~\hyperref[fig:bytecode]{\ref{fig:bytecode}}.
+The internal C codes of \texttt{VM\_NASH\_JUMP}, \texttt{VM\_NASH\_CALL}, and
+\texttt{VM\_NASH\_TCALL} are mostly shared. One of the differences between the
+three is to use different strategy to decide hot loops by using different
+values to increment the loop counter. For instance, \texttt{VM\_NASH\_JUMP}
+may add $2$ to the loop counter, while \texttt{VM\_NASH\_CALL} may add $1$,
+which will result in a setting that backward jumps get hot sooner than
+consequent calls.  \texttt{VM\_NASH\_JUMP}, \texttt{VM\_NASH\_CALL}, and
+\texttt{VM\_NASH\_TAIL\_CALL} are defined as \texttt{NEXT} when including the
+file \texttt{vm-engine.c} to define other VM engines.
 
-Codes used internally in \texttt{VM\_NASH\_JUMP}, \texttt{VM\_NASH\_CALL}, and
-\texttt{VM\_NASH\_TCALL} are mostly shared. One of the differences between
-these three macros is to use different strategy to decide loops as hot, by
-using different values to increment loop counter. For instance,
-\texttt{VM\_NASH\_JUMP} may add $2$ to the loop counter, while
-\texttt{VM\_NASH\_CALL} may add $1$, which will result in a setting that
-backward jumps get hot sooner than consequent calls.  \texttt{VM\_NASH\_JUMP},
-\texttt{VM\_NASH\_CALL}, and \texttt{VM\_NASH\_TACLL} are defined as
-\texttt{NEXT} when including the file \texttt{vm-engine.c} to define other VM
-engines.
+\subsubsection{Recording Instructions}
+
+Figure~\hyperref[fig:cnext]{\ref{fig:cnext}} shows the modified contents of
+\texttt{NEXT} in \texttt{VM\_NAME} function. When \texttt{vm\_nash\_engine}
+found a loop, observed bytecode and stack values are recorded by
+\texttt{VM\_NASH\_MERGE}. Figure~\hyperref[fig:cnext]{\ref{fig:cnext}} shows
+how the interpretation continues with updating the value of \texttt{ip}, which
+is a variable in \texttt{VM\_NAME} used for bytecode IP.\@ When the value of
+\texttt{ip} matched the beginning of the loop, \texttt{VM\_NASH\_MERGE} will
+stop recording, and pass the recorded data to JIT
+compiler. Figure~\hyperref[fig:trace]{\ref{fig:trace}} shows dumped sample
+data of recorded bytecode and stack values made by running
+\texttt{sumv-positive} with a length 1000 \texttt{vector} argument containing
+random small integer numbers from \texttt{-10} to \texttt{10}. The hexadecimal
+numbers in left are the absolute bytecode IP of each bytecode instruction, and
+the commented out vector in each line contains \texttt{SCM} representation of
+the values in the stack at the time of recording.  The first bytecode
+\texttt{(uadd/immediate 0 6 1)} in
+Figure~\hyperref[fig:trace]{\ref{fig:trace}} is shown at IP offset 22 in
+Figure~\hyperref[fig:bytecode]{\ref{fig:bytecode}}. \texttt{vm\_nash\_engine}
+continued the recording with IP offset 23, 24, 27, 28, and 31. Then at IP
+offset 32, bytecode \texttt{(br -10)} will be recorded and the interpreter
+jumps back to IP offset 22, which was labeled as \texttt{L2} in
+Figure~\hyperref[fig:bytecode]{\ref{fig:bytecode}}. The bytecode IP matches
+the IP where the recording started, \texttt{vm\_nash\_engine} stops the
+recording. \texttt{VM\_NASH\_MERGE} is defined with empty body when including
+\texttt{vm-engine.c} file for other VM engines.
 
 \begin{figure}
   \centering
@@ -568,53 +589,6 @@ engines.
   added for Nash.}
 \label{fig:cnext}
 \end{figure}
-
-\subsubsection{Recording Instructions}
-
-\begin{figure*}
-  \centering
-  \small
-\begin{verbatim}
-7f4ddb7fc574  (uadd/immediate 0 6 1)            ; #(#x3e #x2a2 #x1 #x0 #x3e8 #x7f4ddb808660 #x3e)
-7f4ddb7fc578  (vector-ref 6 5 6)                ; #(#x3f #x2a2 #x1 #x0 #x3e8 #x7f4ddb808660 #x3e)
-7f4ddb7fc57c  (br-if-u64-<-scm 3 6 #t 4)        ; #(#x3f #x2a2 #x1 #x0 #x3e8 #x7f4ddb808660 #x1a)
-7f4ddb7fc588  (add 1 1 6)                       ; #(#x3f #x2a2 #x1 #x0 #x3e8 #x7f4ddb808660 #x1a)
-7f4ddb7fc58c  (br-if-u64-<= 4 0 #f 9)           ; #(#x3f #x2ba #x1 #x0 #x3e8 #x7f4ddb808660 #x1a)
-7f4ddb7fc598  (mov 6 0)                         ; #(#x3f #x2ba #x1 #x0 #x3e8 #x7f4ddb808660 #x1a)
-7f4ddb7fc59c  (br -10)                          ; #(#x3f #x2ba #x1 #x0 #x3e8 #x7f4ddb808660 #x3f)
-\end{verbatim}
-\caption{Bytecode instructions and stack values recorded with running
-  \texttt{sumv-positive}.}
-\label{fig:trace}
-\end{figure*}
-
-
-Figure~\hyperref[fig:cnext]{\ref{fig:cnext}} shows the modified contents of
-\texttt{NEXT} in \texttt{VM\_NAME} function. When \texttt{vm\_nash\_engine}
-found a loop, observed bytecode and stack values are recorded by
-\texttt{VM\_NASH\_MERGE}. Figure~\hyperref[fig:cnext]{\ref{fig:cnext}} shows
-how the interpretation continues with updating the value of \texttt{ip}, which
-is a variable in \texttt{VM\_NAME} used for bytecode IP. When the value of
-\texttt{ip} match with beginning of the loop, \texttt{VM\_NASH\_MERGE} will
-stop the recording, and pass the recorded data to JIT
-compiler. Figure~\hyperref[fig:trace]{\ref{fig:trace}} shows dumped sample
-data of recorded bytecode and stack values.  The recorded bytecode
-instructions and stack values in Figure~\hyperref[fig:trace]{\ref{fig:trace}}
-were made by running \texttt{sumv-positive} with passing a length 1000
-\texttt{vector} containing random small integer numbers from \texttt{-10} to
-\texttt{10} as argument. The hexadecimal numbers in left are the absolute
-bytecode IP of each bytecode instruction, and the commented out vector in each
-line contains \texttt{SCM} representation of the values in the stack at the
-time of recording.  The first bytecode \texttt{(uadd/immediate 0 6 1)} in
-Figure~\hyperref[fig:trace]{\ref{fig:trace}} is shown at IP offset 22 in
-Figure~\hyperref[fig:bytecode]{\ref{fig:bytecode}}. \texttt{vm\_nash\_engine}
-continued the recording with IP offset 23, 24, 27, 28, and 31. Then at IP
-offset 32, the last bytecode \texttt{(br -10)} is recorded and jumped back to
-IP offset 22, which is labeled as \texttt{L2} in
-Figure~\hyperref[fig:bytecode]{\ref{fig:bytecode}}. The bytecode IP matched
-with the IP where the recording started, \texttt{vm\_nash\_engine} stopped the
-recording. \texttt{VM\_NASH\_MERGE} is defined with empty body when including
-\texttt{vm-engine.c} file for other VM engines.
 
 \section{Nash Compiler}
 \label{sec:compiler}
@@ -641,6 +615,23 @@ variable is loaded from current stack. The variables starting with the letter
 \texttt{r} indicates that the variable is for temporal use only.
 
 \subsubsection{Snapshot}
+
+\begin{figure*}
+  \centering
+  \small
+\begin{verbatim}
+7f4ddb7fc574  (uadd/immediate 0 6 1)            ; #(#x3e #x2a2 #x1 #x0 #x3e8 #x7f4ddb808660 #x3e)
+7f4ddb7fc578  (vector-ref 6 5 6)                ; #(#x3f #x2a2 #x1 #x0 #x3e8 #x7f4ddb808660 #x3e)
+7f4ddb7fc57c  (br-if-u64-<-scm 3 6 #t 4)        ; #(#x3f #x2a2 #x1 #x0 #x3e8 #x7f4ddb808660 #x1a)
+7f4ddb7fc588  (add 1 1 6)                       ; #(#x3f #x2a2 #x1 #x0 #x3e8 #x7f4ddb808660 #x1a)
+7f4ddb7fc58c  (br-if-u64-<= 4 0 #f 9)           ; #(#x3f #x2ba #x1 #x0 #x3e8 #x7f4ddb808660 #x1a)
+7f4ddb7fc598  (mov 6 0)                         ; #(#x3f #x2ba #x1 #x0 #x3e8 #x7f4ddb808660 #x1a)
+7f4ddb7fc59c  (br -10)                          ; #(#x3f #x2ba #x1 #x0 #x3e8 #x7f4ddb808660 #x3f)
+\end{verbatim}
+\caption{Bytecode instructions and stack values recorded with running
+  \texttt{sumv-positive}.}
+\label{fig:trace}
+\end{figure*}
 
 \begin{figure}
   \centering
@@ -970,7 +961,7 @@ memory, running Arch Linux, Linux kernel 4.5.4.
     parsing & 1.654 & 9.685 \\
     dynamic & 2.506 & 6.359 \\
     \midrule
-    Geometric mean & 0.400 & 13.770 \\
+    GM & 0.400 & 13.770 \\
   \end{tabular}
   \caption{Selected benchmark results from
     Figure~\hyperref[fig:bench]{\ref{fig:bench}} and geometric mean of the
@@ -990,13 +981,12 @@ containing tight loop with Scheme flonum values, such as \texttt{sumfp} and
 with programs containing tight loop without Scheme flonum values, such as
 \texttt{sum} and \texttt{sumloop}.
 
-Some of the benchmarks, such as \texttt{sum1}, \texttt{pi}, \texttt{ctak},
-\texttt{string}, and \texttt{fibc}, showed similar performance in Nash,
-VM-regular, and Guile interpreter. In these benchmarks, large amount of time
-were spent in procedures written in C functions, such as \texttt{read},
-\texttt{string-append}, and arithmetic procedures for large numbers.  All
-three implementations are calling the same underlying C functions, thus the
-differences in performance results were relatively small.
+Some of the benchmarks, such as \texttt{sum1}, \texttt{pi}, and \texttt{string}, showed similar performance in Nash,
+VM-regular, and Guile interpreter. In these benchmarks, large amount of the
+time were spent in procedures written in C functions, such as \texttt{read},
+\texttt{string-append}, and arithmetic procedures for large integer numbers.
+All three implementations are calling the same underlying C functions, thus
+the performance differences were relatively small.
 
 In benchmarks with many continuation object creations, such as \texttt{ctak}
 and \texttt{fibc}, Nash runs slower than VM regular. Nash implements

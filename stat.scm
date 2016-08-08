@@ -318,7 +318,7 @@ true, otherwise sorts alphabetically by benchmark name."
                      (z-score tjit)
                      (z-score pycket))))))
       (format port "\\begin{tabular}{rrcc}~%")
-      (format port "Name & GSD & Nash & Pycket \\\\~%")
+      (format port " & GSD & Nash & Pycket \\\\~%")
       (format port "\\toprule~%")
       (for-each print-row '(sumfp mbrot sum array1 sumloop))
       (format port "\\midrule~%")
