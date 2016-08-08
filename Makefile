@@ -27,5 +27,5 @@ dist.dat hist.dat ${inc}: stat.scm
 	${GUILE} -e main stat.scm ${DATA}
 
 clean:
-	rm -f *.log *.pdf *.aux *.out *.dvi *.fls *.blg *.fdb_latexmk *~
+	rm -f *.log *.pdf *.eps *.aux *.out *.dvi *.fls *.blg *.fdb_latexmk *~
 

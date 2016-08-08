@@ -1,40 +1,80 @@
-digraph Overview
-{
+digraph Flow {
         // rankdir=LR;
-        // size="8,5";
-        // margin="1"
-        nodesep=1.3
+        splines=ortho;
+        // nodesep=0.25;
+        // nodesep=1;
+        fontname="Helvetica"
 
-        // layout=twopi
-        layout=circo
+        node [fontname="Helvetica"]
 
-        node [width=1,shape=box,fixedsize=true,style="rounded,filled,bold",fontname="Helvetica"];
+        subgraph cluster_interpreter {
+                label="Nash Interpreter";
+                style="filled";
+                color="#f9e7bf";
 
-        Start [fillcolor=black,shape=circle,label="",width=0.2,height=0.2];
-        Interpret [fillcolor="#bfdcec"];
-        Record [fillcolor="#fbf8d0"];
-        Compile [fillcolor="#f9c7c3"];
-        Native [fillcolor="#bfe7dc"];
-        End [fillcolor=black,shape=doublecircle,label="",width=0.2];
+                node [width=1,shape=box,style="filled,bold,rounded",fontname="Helvetica"] {
+                        start [label="Start",fillcolor="#ffffff"];
+                        // end [label="End"];
+                }
 
-        // twopi-sepcific
-        // root=Interpret
-        // ranksep=2
-        // ranksep=1.5
+                node [shape=box,style="filled,bold",fillcolor="#bfdcec"] {
+                        interpret [label="Interpret bytecode"];
+                        lookup [label="Lookup native code"];
+                        rec [label="Record and interpret"];
+                }
+                node [shape=hexagon,style="filled,bold",fillcolor="#fbf8d0"] {
+                        is_hotloop [label="Hot loop found?"];
+                        has_native [label="Native code found?"];
+                        done_rec [label="End of loop?"];
+                }
+        }
 
-        // circo-specific
-        root=Interpret
-        overlap=scale
-        mindist=0.6
+        subgraph cluster_compiler {
+                style="filled";
+                color="#f9c7c3";
+                node [shape=box,style="filled,bold",fillcolor="#bfdcec"] {
+                        compile [label="Compile"];
+                }
+                // label="Nash Compiler";
+                node [shape=plaintext,style=""] {
+                        l [label="Nash\nCompiler"];
+                }
+                { rank=same;
+                        compile l};
+                compile -> l [style="invis"];
+        }
 
-        edge [color="#9e9e9e",style=bold,fontname="Helvetica"]
-        Start -> Interpret [taillabel="1",labeldistance=2.5,labelangle=-25]
-        Interpret -> Record [headlabel="2",labeldistance=2,labelangle=-30]
-        Record -> Compile [headlabel="3",labeldistance=3.5]
-        Compile -> Interpret [taillabel="4",labeldistance=1.5,labelangle=50]
-        Interpret -> Native [headlabel="5",labeldistance=2.3]
-        Native -> Interpret [taillabel="6",labeldistance=2.5,labelangle=30]
-        Interpret -> End [label="7"]
-        // edge [color="#9e9e9e",style="dashed,bold"]
-        // Compile -> Native [label="Emit"]
+        subgraph cluster_native {
+                label="Native code";
+                style="filled";
+                color="#bfe7dc";
+                node [shape=box,style="filled,bold",fillcolor="#bfdcec"] {
+                        native [label="Run compiled code"];
+                        recover [label="Recover interpreter state"];
+                }
+                node [shape=hexagon,style="filled,bold",fillcolor="#fbf8d0"] {
+                        guard [label="Guard failed?"];
+                }
+        }
+
+        edge [color="black",fontname="Helvetica",style="bold"] {
+                start -> interpret;
+                interpret -> is_hotloop;
+                is_hotloop -> lookup [taillabel="Yes",labelangle=-50,labeldistance=2.5];
+                is_hotloop -> interpret [taillabel="No",labelangle=-50,labeldistance=2];
+                lookup -> has_native;
+                has_native -> native [taillabel="Yes",labelangle=50,labeldistance=2.5];
+                has_native -> rec [taillabel="No",labelangle=-50,labeldistance=2.5];
+                rec -> done_rec;
+
+                native -> guard;
+                guard -> recover [label="Yes"];
+                guard -> native [taillabel="No",labelangle=-50,labeldistance=2.5];
+                recover -> interpret;
+
+                done_rec -> compile [label="Yes"];
+                done_rec -> rec [taillabel="No",labelangle=-50,labeldistance=2.5];
+                compile -> interpret;
+        }
+
 }
