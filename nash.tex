@@ -99,8 +99,8 @@ programs. Design of Nash internals is discussed, including its VM interpreter
 which records frequently executed instructions found in Guile's bytecode, and
 its JIT compiler which emits native code from recorded instructions. Nash
 coexists with Guile's existing VM.\@ Lots of Guile's features, such as
-bytecode interpreter, are reused in Nash. When conditions were met, Nash runs
-more than \textit{$40\times$ faster} than Guile's existing VM, without
+bytecode interpreter, are reused in Nash. When conditions are met, Nash runs
+more than \textit{$40\times$ faster} than Guile's existing VM without
 modifying the input program. Benchmark results of Nash are shown, including
 comparisons with other Scheme implementations.
 
@@ -130,12 +130,12 @@ incrementally, such as in Chez~\cite{dybvig2006development} and
 Larceny~\cite{hansen1992impact}, or in a mixture of AOT and JIT compilation,
 such as in Pycket~\cite{bauman2015pycket}, and Racket~\cite{flatt2013racket}.
 
-There exist a performance gap between Scheme implementations which does native
-code compilation and which doesn't. Tracing JIT compilation is a technique
-used in VM to improve performance by compiling the frequently executed
-instruction code paths. Dynamo~\cite{bala2000dynamo} has pioneered the use of
-tracing JIT by tracing native code. Later the technique was used in various
-VMs for dynamic programming language to achieve performance
+There exists a performance gap between Scheme implementations which does
+native code compilation and which doesn't. Tracing JIT compilation is a
+technique used in VM to improve performance by compiling the frequently
+executed instruction code paths. Dynamo~\cite{bala2000dynamo} has pioneered
+the use of tracing JIT by tracing native code. Later the technique was used in
+various VMs for dynamic programming language to achieve performance
 improvement. Languages such as Lua~\cite{pall2016luajit},
 JavaScript~\cite{gal2009trace}, and Python~\cite{bolz2009tracing} have made
 success with VMs which implement tracing JIT.\@
@@ -188,7 +188,7 @@ before the execution.\footnote{By default, source codes are byte-compiled
 \texttt{sumv-positive}, the computation starts with bytecode
 interpretation. After executing the bytecode for a while, the bytecode
 interpreter detects a hot loop in the body of \texttt{sumv-positive}. Then the
-bytecode interpreter switches its state, start recording the bytecode
+bytecode interpreter switches its state, starts recording the bytecode
 instructions and corresponding stack values of the loop. Recording of
 instructions are described in
 Section~\hyperref[sec:interpreter]{\ref{sec:interpreter}}. When the bytecode
@@ -753,7 +753,6 @@ tag and the length of the vector. A tc7 tag is, like tc3 tag, a 7 bits long
 tag value used to distinguish types. The length is left shifted for 8 bits so
 that the tc7 tag value and the length could fit in single word. Actual vector
 elements are stored from the memory address of the SCM object plus one word.
-
 The primitive operation \texttt{\%cref} in line 13 loads a value from Scheme
 heap object with offset 0 and stores the loaded value to temporary register
 \texttt{r2}. Then \texttt{r2} is passed to \texttt{\%rsh} in line 14, which
@@ -979,8 +978,8 @@ memory, running Arch Linux, Linux kernel 4.5.4.
     GM & 0.400 & 13.770 \\
   \end{tabular}
   \caption{Selected benchmark results from
-    Figure~\hyperref[fig:bench]{\ref{fig:bench}} and geometric mean of the
-    benchmarks, shown in numbers.}
+    Figure~\hyperref[fig:bench]{\ref{fig:bench}} and geometric mean (GM) of
+    the benchmarks, shown in numbers.}
 \label{tab:compguile}
 \end{table}
 
