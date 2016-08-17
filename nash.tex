@@ -23,6 +23,7 @@
 %% \documentclass{sigplanconf}
 %% \documentclass[preprint]{sigplanconf}
 \documentclass[preprint, 10pt]{sigplanconf}
+%% \documentclass[10pt]{sigplanconf}
 
 % The following \documentclass options may be useful:
 
@@ -44,7 +45,8 @@
 \hypersetup{
   colorlinks=true,
   linkcolor=blue,
-  citecolor=violet
+  citecolor=blue,
+  urlcolor=blue
 }
 
 \lstset{
@@ -75,9 +77,9 @@
 % These are ignored unless 'preprint' option specified.
 \titlebanner{DRAFT}
 
-\preprintfooter{DRAFT --- Nash: a tracing JIT VM for Guile}
+\preprintfooter{DRAFT --- Nash: a tracing JIT for Guile}
 
-\title{Nash: A Tracing JIT VM For Guile}
+\title{Nash: A Tracing JIT For Guile}
 %% \subtitle{Subtitle Text, if any}
 
 \authorinfo{Atsuro Hoshino}
@@ -118,12 +120,12 @@ Scheme~Programming~Language
 
 \section{Introduction}
 
-From its simple design, Scheme is used for various purposes, many
-implementations exist. One of the uses is as an extension language embedded in
-other program. Implementations such as Chibi-Scheme and TinyScheme are
-designed with use as an extension language in mind. On the other hand, there
-are Scheme implementations used for more expensive computations. This kind of
-Scheme implementations typically compiles to native code before executing. The
+From its simple design, Scheme is used for various purposes, has many
+implementations. One of the uses is as an extension language embedded in other
+program. Implementations such as Chibi-Scheme and TinyScheme are designed with
+use as an extension language in mind. On the other hand, there are Scheme
+implementations used for more expensive computations. This kind of Scheme
+implementations typically compiles to native code before executing. The
 compilation could be done \textit{ahead-of-time} (AOT), such as in
 Bigloo~\cite{serrano1995bigloo} and Gambit~\cite{feeley1998gambit}, or
 incrementally, such as in Chez~\cite{dybvig2006development} and
@@ -207,6 +209,11 @@ implementations. Section~\hyperref[sec:conclusion]{\ref{sec:future}} discusses
 current limitations and possibilities for future work. Finally,
 Section~\hyperref[sec:related]{\ref{sec:related}} mentions related works, and
 Section~\hyperref[sec:conclusion]{\ref{sec:conclusion}} concludes this paper.
+The source code of Nash is available at:
+
+\begin{center}
+  \url{http://github.com/8c6794b6/guile-tjit}
+\end{center}
 
 \section{Background}
 \label{sec:background}
@@ -1047,10 +1054,11 @@ amount of JIT compilation overhead caused by conditional branches.
     \midrule
     MIT (9.2) &  0.486 & 55 & parsing, nucleic & AOT \\
   \end{tabular}
-  \caption{Benchmarked Scheme native code compilers. Geometric means of
-    benchmark results normalized to VM-regular, lower is better. Geometric
-    means are calculated from valid results only, column \texttt{N} shows the
-    number of valid results. Version for Pycket is git revision.}
+  \caption{Benchmark results of Scheme native code compilers. Geometric means
+    of benchmark results are normalized to VM-regular, lower is
+    better. Geometric means are calculated from valid results only, column
+    \texttt{N} shows the number of valid results. Version for Pycket is git
+    revision.}
 \label{tab:nativecomp}
 \end{table}
 
@@ -1108,8 +1116,8 @@ requires further efforts.
 \section{Limitations and Future Work}
 \label{sec:future}
 
-Nash is still an experimental implementation, has a lot of space for
-improvements. Some of the possibilities for future works follows.
+Nash is still an experimental implementation. Some of the possibilities for
+future works follows.
 
 \paragraph{Support more bytecode instructions} Nash still has bytecode
 instructions which are not implemented at all, such as \texttt{prompt} and
