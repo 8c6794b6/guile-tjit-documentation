@@ -1,0 +1,83 @@
+digraph Flow {
+        // rankdir=LR;
+        splines=ortho;
+        // nodesep=0.25;
+        // nodesep=1;
+        fontname="Helvetica"
+        bgcolor="transparent"
+
+        node [fontname="Helvetica"]
+
+        subgraph cluster_interpreter {
+                label="Nash Interpreter";
+                style="filled";
+                color="#f9e7bf";
+
+                node [width=1,shape=box,style="filled,bold,rounded",fontname="Helvetica"] {
+                        start [label="Start",fillcolor="#ffffff"];
+                        // end [label="End"];
+                }
+
+                node [shape=box,style="filled,bold",fillcolor="#bfdcec"] {
+                        interpret [label="Interpret bytecode"];
+                        lookup [label="Lookup native code"];
+                        rec [label="Record and interpret"];
+                }
+                node [shape=hexagon,style="filled,bold",fillcolor="#fbf8d0"] {
+                        is_hotloop [label="Hot loop found?"];
+                        has_native [label="Native code found?"];
+                        done_rec [label="End of loop?"];
+                }
+        }
+
+        subgraph cluster_compiler {
+                style="filled";
+                color="#f9c7c3";
+                node [shape=box,style="filled,bold",fillcolor="#bfdcec"] {
+                        compile [label="Compile"];
+                }
+                // label="Nash Compiler";
+                node [shape=plaintext,style=""] {
+                        l [label="Nash\nCompiler"];
+                }
+                { rank=same;
+                        compile l};
+                compile -> l [style="invis"];
+        }
+
+        subgraph cluster_native {
+                label="Native code";
+                style="filled";
+                color="#bfe7dc";
+                node [shape=box,style="filled,bold",fillcolor="#bfdcec"] {
+                        native [label="Run compiled code"];
+                        recover [label="Recover interpreter state"];
+                }
+                node [shape=hexagon,style="filled,bold",fillcolor="#fbf8d0"] {
+                        guard [label="Guard failed?"];
+                }
+        }
+
+        edge [color="red",fontname="Helvetica",style="bold"] {
+                interpret -> is_hotloop;
+                is_hotloop -> lookup [taillabel="Yes",labelangle=-50,labeldistance=2.5];
+                lookup -> has_native;
+                has_native -> native [taillabel="Yes",labelangle=50,labeldistance=2.5];
+                native -> guard;
+                guard -> recover [label="Yes"];
+                guard -> native [taillabel="No",labelangle=-50,labeldistance=2.5];
+                recover -> interpret;
+        }
+        edge [color="grey",fontname="Helvetica",style="bold"] {
+                start -> interpret;
+
+                is_hotloop -> interpret [taillabel="No",labelangle=-50,labeldistance=2];
+                has_native -> rec [taillabel="No",labelangle=-50,labeldistance=2.5];
+                rec -> done_rec;
+
+                done_rec -> compile [label="Yes"];
+                done_rec -> rec [taillabel="No",labelangle=-50,labeldistance=2.5];
+                compile -> interpret;
+        }
+
+}

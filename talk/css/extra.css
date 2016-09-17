@@ -1,0 +1,17 @@
+/***
+ *
+ * Some extra settings for customization.
+ *
+ */
+
+/* .dumped { */
+/*     font-size: 12px; */
+/*     background-color: #ffffff; */
+/*     padding: 10px; */
+/* } */
+
+.dumped {
+    padding: 10px;
+    background-color: #3f3f3f;
+    color: #dcdcdc;
+}

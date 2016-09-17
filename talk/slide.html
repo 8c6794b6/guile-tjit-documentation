@@ -1,0 +1,1099 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Nash: Tracing JIT VM for Guile</title>
+    <link rel="stylesheet" href="css/reveal.css">
+    <!-- <link rel="stylesheet" href="css/theme/solarized.css"> -->
+    <link rel="stylesheet" href="css/theme/white.css">
+    <link rel="stylesheet" href="lib/css/zenburn.css">
+    <link rel="stylesheet" href="css/extra.css">
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <section>
+          <h2>Nash</h2>
+          an experimental
+          <h3>Tracing JIT VM</h3>
+          for
+          <h3>GNU Guile</h3>
+          <aside class="notes">
+            <p> (greeting) Hello everyone, I'm xxx..., today I'd like to talk
+              about Nash, an experimental tracing JIT VM for GNU Guile.
+            </p>
+            <p>Demo: (Run the mandelbrot20.scm with guile). The program
+              currently running is a Scheme script repeatedly showing mandelbrot
+              sets as an ASCII art. The program is running by GNU Guile. The
+              program contains loops, the mandelbrot set is shown repeatedly for
+              20 times, and each mandelbrot set contains loops to show lines,
+              and each line contains a loop for each character. And ... it took
+              about XXX seconds under my machine.
+            </p>
+            <p>Now I'm running the same program with Nash, an experimental tracing
+              JIT virtual machine for GNU Guile. ... it took about XXX seconds,
+              which is about 50 times faster than previous run.
+          </aside>
+        </section>
+        <!-- <section> -->
+        <!--   <h2>Contents</h2> -->
+        <!--   <p>Background</p> -->
+        <!--   <p>Nash Overview</p> -->
+        <!--   <p>Evaluation</p> -->
+        <!--   <aside class="notes"> -->
+        <!--     This slide has speaker notes.  The area for showing speaker notes is -->
+        <!--     not so big, wondering how it behaves when the contents of notes are -->
+        <!--     overflowed. ... Seems like the area could be scrolled. -->
+        <!--   </aside> -->
+        <!-- </section> -->
+        <section>
+          <h2>Tracing JIT</h2>
+          <aside class="notes">
+            So, what is tracing JIT? Tracing JIT is a technique used in VM to
+            improve performance. Some real world example exist, such as LuaJIT
+            for the Lua programming language, and Pypy for the Python
+            programming language.
+          </aside>
+        </section>
+        <section>
+          <h3>Assumptions</h3>
+          <ul>
+            <li class="fragment">
+              Programs spend most of their runtime in loops.
+            </li>
+            <li class="fragment">
+              Several iterations of the same loop are likely to take similar
+              code paths.
+            </li>
+          </ul>
+          <aside class="notes">
+            <p>
+            The performance improvement achieved by tracing JIT is based on some
+            assumptions.
+            </p>
+            <p>
+              One is, programs spend most of their runtime in loops. Typical
+              tracing JIT VM contains bytecode interpreter. The interpreter
+              observes the bytecode instructions and seeks for hot
+              loop. Bytecode instructions inside the loop are recorded, then
+              compiled to native code
+            </p>
+            <p>
+              Another assumption is, that several iterations of the same loop
+              are likely to take similar code paths. To achieve performance
+              improvement, need to call the compiled native code instead of
+              interpreting the bytecode of the loop. Compiling to native code
+              and never calling them, will not result in performance
+              improvement.
+            </p>
+          </aside>
+        </section>
+        <section>
+          <h3>Terminology</h3>
+          <p><em>Trace:</em>
+            <span class="fragment">Recorded instruction sequence.</span>
+          </p>
+          <p><em>Fragment:</em>
+            <span class="fragment">Artifact made from a trace.</span>
+          </p>
+          <p><em>Guard:</em>
+            <span class="fragment">A test inserted to native code.</span>
+          </p>
+          <aside class="notes">
+            <p>
+              Some key terms in tracing JIT are:
+            </p>
+
+            <p>
+              A trace is a sequence of instructions, in most case the
+              instruction sequence corresponds to a loop.  Typcally, tracing JIT
+              VM has an interpreter which count the number of loop iterations,
+              and the counter has certain threshold. When the loop count exceed
+              that threshold, the interpreter start recording the instructions
+              inside the loop.
+            </p>
+
+            <p>
+              Fragment is an artifact made from a trace. Fragment contains
+              accompanying native code of the recorded instructions, and some
+              other useful meta information for the virtual machine, such as
+              instruction pointer of bytecode to enter the native code.
+            </p>
+
+            <p>
+              Guard is a test inserted to native code. Because the recorded
+              instructions are derived from a loop, compiled native code need to
+              exit from that loop at certain point. The test code inserted by a
+              guard checks whether the native code suffice the same condition
+              appeared in trace at the time of recording. When the test failed,
+              the VM fall back to the bytecode interpreter instead of executing
+              native code. Later on, similar code paths of the native code with
+              failed guard may traced again.
+            </p>
+          </aside>
+        </section>
+        <section>
+          <h2>GNU Guile</h2>
+          <aside class="notes">
+            That was a brief explanation of tracing JIT, and now moving on to
+            GNU Guile.  GNU Guile is an implementation of Scheme. Speaking
+            precisely, Guile can run other language than Scheme. However, Scheme
+            is the most mature language implemented in Guile, and probably the
+            most popular language used by the Guile users.
+          </aside>
+        </section>
+          <section>
+            <div style="float: left; width: 45%;">
+              <p style="text-align: left;">
+                Guile compiles Scheme source code to <em>bytecode</em>
+              </p>
+              <pre class="fragment" data-fragment-index="1"><code class="hljs"
+              data-trim>
+(define (mandelbrot x y)
+  (let ((cr (- y 0.5))
+        (ci x)
+        (zi 0.0)
+        (zr 0.0))
+    (let lp ((i 0) (zr zr) (zi zi))
+      (if (< *max-iterations* i)
+          0
+          (let ((zi2 (* zi zi))
+                (zr2 (* zr zr)))
+            (if (< *bailout* (+ zi2 zr2))
+                i
+                (lp (+ i 1)
+                    (+ (- zr2 zi2) cr)
+                    (+ (* 2.0 zr zi) ci))))))))</code></pre>
+                   <div class="fragment" style="text-align: left;"
+                        data-fragment-index="3">
+                <p>
+                  Bytecode has flat structure.
+                </p>
+                <p>
+                  Bytecode contains labels for jump destination.
+                </p>
+              </div>
+            </div>
+            <div style="float: right; width: 45%;">
+              <!-- <div class="fragment" data-fragment-index="2"> -->
+            <pre class="fragment" data-fragment-index="2"
+                 style="font-size: 18px; padding: 10px;"
+                 data-trim
+                 >
+Disassembly of mandelbrot at #x2a8:
+
+   0    (assert-nargs-ee/locals 3 9)
+   1    (static-ref 11 3087)
+   3    (sub 11 9 11)
+   4    (make-short-immediate 9 2)
+   5    (static-ref 8 3093)
+   7    (toplevel-box 7 3093 2925 2923 #t)
+  12    (box-ref 7 7)
+  13    (static-ref 6 3097)
+  15    (mov 5 8)
+  16    (mov 4 8)
+  17    (mov 8 9)
+<span class="fragment grow highlight-red" data-fragment-index="3">L1:</span>
+  18    (br-if-< 7 8 #f 26)
+  21    (mul 3 4 4)
+  22    (mul 2 5 5)
+  23    (toplevel-box 1 3089 2909 2897 #t)
+  28    (box-ref 1 1)
+  29    (add 0 3 2)
+  30    (br-if-< 1 0 #f 12)
+  33    (add/immediate 8 8 1)
+  34    (sub 3 2 3)
+  35    (add 3 3 11)
+  36    (mul 5 6 5)
+  37    (mul 5 5 4)
+  38    (add 5 5 10)
+  39    (mov 4 5)
+  40    (mov 5 3)
+  41    (br -23)
+<span class="fragment grow highlight-red" data-fragment-index="3">L2:</span>
+  42    (mov 10 8)
+  43    (return-values 2)
+<span class="fragment grow highlight-red" data-fragment-index="3">L3:</span>
+  44    (mov 10 9)
+  45    (return-values 2)
+                 </pre></div> <!-- </div> -->
+            <aside class="notes">
+              <p>
+                Guile compiles Scheme source code to bytecode before
+                executing. The bytecode compilation could happen ahead of time
+                when running a script, or could happen incrementally when using
+                REPL.
+              </p>
+              <p>
+                The scheme Source code shown in the left is the procedure used
+                to draw ASCII art of mandelbrot set. It takes two arguments, x
+                and y for drawing single character. The procedure contains a
+                loop, which has two exit points, one comparing the variable i
+                with max iterations, and another comparing bailout with the sum
+                of zi2 and zr2.
+              </p>
+              <p>
+                The code shown in the right is the contents of bytecode of the
+                mandelbrot procedure. I'm skipping the detail for now, but we
+                can see that ...
+              </p>
+              <p>
+                the bytecode has flat structure, and the bytecode contains
+                labels for jump destination.
+              </p>
+            </aside>
+          </section>
+          <section>
+            <div style="float: left; width: 50%; text-align: left;">
+              <p>
+                Compiled bytecode instructions are interpreted by a C function.
+              </p>
+              <p class="fragment" data-fragment-index="1">
+                The C function is called <em>VM-engine</em>.
+              </p>
+              <p class="fragment">
+                VM-engine contains a huge <code>switch ... case</code>
+                statement.
+              </p>
+            </div>
+            <div class="fragment" style="float: right; width: 50%;"
+                 data-fragment-index="2">
+              <pre><code class="hlc" data-trim>
+static SCM
+VM_NAME (scm_i_thread *thread, struct scm_vm *vp,
+         scm_i_jmp_buf *registers, int resume) {
+   ...
+   VM_DEFINE_OP (1, call, ...) {
+       ...
+   }
+   VM_DEFINE_OP (2, call-label, ...) {
+       ...
+   }
+   VM_DEFINE_OP (3, tail_call, ...) {
+       ...
+   }
+   ...
+}
+              </code></pre>
+            </div>
+            <aside class="notes">
+              <p>
+                Compiled bytecode instructions are interpreted by a C function ...
+              </p>
+              <p>
+                ... which is called VM-engine in guile documentation.
+              </p>
+              <p>
+                The excerpt of the C function looks like the one shown in the
+                right side. I'm skipping the detail again, though we can see
+                that it contains definitions call, call-label, and tail-call
+                with C macro VM_DEFINE_OP.
+              </p>
+              <p>
+                Roughly speaking, the bytecode instruction definition macros
+                expand to huge switch and case statement.
+              </p>
+            </aside>
+          </section>
+          <section>
+            <h2>Nash Overview</h2>
+            <aside class="notes">
+              That was enough for Guile background, now moving on to Nash
+              overview. Nash, is an alternate VM-engine for Guile. It is
+              designed to work as a drop in replacement of the current VM-engine
+              C function.
+            </aside>
+          </section>
+          <section>
+            <div style="float: left;">
+              <img data-src="overview.gv.ssvg" alt="overview diagram"
+                   style="border: none;">
+            </div>
+            <div class="fragment"
+                 style="float: right; width: 50%; text-align: left;">
+              <p>Key components:</p>
+                <ul>
+                  <li>Interpreter</li>
+                  <li>Compiler</li>
+                  <li>Native code</li>
+                </ul>
+            </div>
+            <aside class="notes">
+              <p>
+                The diagram in the left shows a control flow of Nash running a
+                program.
+              </p>
+              <p>
+                There are three key components, Nash interpreter, Nash compiler,
+                and native codes.
+              </p>
+            </aside>
+          </section>
+          <section data-background="#f9e7bf">
+            <div style="float: left;">
+              <img data-src="overview-01.gv.svg" alt="overview diagram"
+                   style="border: none;">
+            </div>
+            <div style="float: right; width: 50%; text-align: left;">
+              <p>
+                User programs start from the interpreter.
+              </p>
+              <p class="fragment">
+                Interpreter observes each bytecode instruction, seeks for hot
+                loops.</p>
+              <p class="fragment">
+                When a hot loop was detected, the interpreter looks up
+                accompanying native code.
+              </p>
+              <p class="fragment">
+                If no native code were found, the interpreter starts recording
+                the instructions in the loop.
+              </p>
+            </div>
+            <aside class="notes">
+              <p>
+                When a program starts, it starts from the interpreter.
+              </p>
+              <p>
+                While the interpreter interprets bytecodes, it observes each
+                bytecode, and certain instructions are treated as loop beginning
+                instructions, such as backward jump. In this phase, Nash
+                interpreter runs slower than Guile's ordinal bytecode
+                interpreter since there are some profiling overheads coming from
+                hot loop detection. Good tracing JIT virtual machines try to
+                minimize this overhead. In Nash's case, typically the overhead
+                stays none to few percents speed down.
+              </p>
+              <p>
+                When a hot loop was detected, the interpreter looks up
+                accompanying native code. Bytecode instruction in compiled
+                Scheme procedure has absolute address where it was loaded, and
+                the fragment keeps the address where the loop of recorded trace
+                has started. Nash uses this absolute address of the bytecode
+                instruction and types of variables in current stack as lookup
+                key. The types are not always used, but are used when supporting
+                bytecode instructions with polymorphic types.
+              </p>
+              <p>
+                When no native code were found, the interpreter starts recording
+                the instruction in the loop. The recording continues until the
+                interpreter reach to the instruction appeared in the beginning
+                of the loop.
+              </p>
+            </aside>
+          </section>
+          <section data-background="#f9e7bf">
+            <pre style="float: left; width: 45%;
+                        font-size: 18px;
+                        background-color: #ffffff;
+                        padding: 10px;"
+                 data-trim>
+Disassembly of mandelbrot at #x2a8:
+
+   0    (assert-nargs-ee/locals 3 9)
+   1    (static-ref 11 3087)
+   3    (sub 11 9 11)
+   4    (make-short-immediate 9 2)
+   5    (static-ref 8 3093)
+   7    (toplevel-box 7 3093 2925 2923 #t)
+  12    (box-ref 7 7)
+  13    (static-ref 6 3097)
+  15    (mov 5 8)
+  16    (mov 4 8)
+  17    (mov 8 9)
+<span class="fragment highlight-red" data-fragment-index="2">L1:
+  18    (br-if-< 7 8 #f 26)</span>
+<span class="fragment highlight-red" data-fragment-index="3">  21    (mul 3 4 4)
+  22    (mul 2 5 5)
+  23    (toplevel-box 1 3089 2909 2897 #t)
+  28    (box-ref 1 1)
+  29    (add 0 3 2)
+  30    (br-if-< 1 0 #f 12)
+  33    (add/immediate 8 8 1)
+  34    (sub 3 2 3)
+  35    (add 3 3 11)
+  36    (mul 5 6 5)
+  37    (mul 5 5 4)
+  38    (add 5 5 10)
+  39    (mov 4 5)
+  40    (mov 5 3)</span>
+<span class="fragment highlight-red" data-fragment-index="1">  41    (br -23)</span>
+L2:
+  42    (mov 10 8)
+  43    (return-values 2)
+L3:
+  44    (mov 10 9)
+  45    (return-values 2)</pre>
+            <div style="float: right; width: 45%;">
+              <div style="text-align: left;">
+                <p class="fragment" data-fragment-index="1">
+                  IP 41: (br -23) is a backward jump instruction.
+                </p>
+                <p class="fragment" data-fragment-index="2">
+                  The interpreter jumps back to IP 18: (br-if-7 8 #f 20), which
+                  is marked as L1, the label one.
+                </p>
+                <p class="fragment" data-fragment-index="3">
+                  Then the interpreter records the instructions between IP 18
+                  and 41.
+                </p>
+                <p class="fragment" data-fragment-index="4">Recorded trace looks
+                like:</p>
+              </div>
+              <pre class="fragment"
+                   data-fragment-index="4"
+                   style="font-size: 18px;
+                          background-color: #ffffff;
+                          padding: 10px;"
+                   data-trim>
+;;; trace 1: bytecode 16
+7f39397e92f0  (br-if-< 7 8 #f 26)
+7f39397e92fc  (mul 3 4 4)
+7f39397e9300  (mul 2 5 5)
+7f39397e9304  (toplevel-box 1 3089 2909 2897 #t)
+7f39397e9318  (box-ref 1 1)
+7f39397e931c  (add 0 3 2)
+7f39397e9320  (br-if-< 1 0 #f 12)
+7f39397e932c  (add/immediate 8 8 1)
+7f39397e9330  (sub 3 2 3)
+7f39397e9334  (add 3 3 11)
+7f39397e9338  (mul 5 6 5)
+7f39397e933c  (mul 5 5 4)
+7f39397e9340  (add 5 5 10)
+7f39397e9344  (mov 4 5)
+7f39397e9348  (mov 5 3)
+7f39397e934c  (br -23)</pre>
+            </div>
+            <aside class="notes">
+              <p>
+                For instance, the loop in procedure mandelbrot is traced in
+                following manner.  On the left side, showing the disassembled
+                bytecode of mandelbrot procedure again.
+              </p>
+              <p>
+                IP 41 contains the instruction br -23, which is a backward
+                jump.
+              </p>
+              <p>
+                The jump destination is IP 18, since 41 minus 23 is 18.
+              </p>
+              <p>
+                After jumping back to IP 18, the interpreter records
+                instructions until it reached the bytecode address of IP 41.
+                Note that the disassembled procedure is showing relative IP
+                starting from 0.
+              </p>
+              <p>
+                Recorded trace is shown at the right bottom. Note that the
+                hexadecimal numbers on right side of the lines are absolute
+                bytecode address.
+              </p>
+            </aside>
+          </section>
+          <section data-background="#f9c7c3">
+            <div style="float: left;">
+              <img data-src="overview-02.gv.svg" alt="overview diagram"
+                   style="border: none;">
+            </div>
+            <div style="float: right; text-align: left; width: 50%;";>
+              <p>The recorded instructions are then passed to compiler.</p>
+              <p class="fragment">Compiler is written in Scheme.</p>
+              <p class="fragment">
+                Uses <em>A-normal form</em> IR.
+              </p>
+              <p class="fragment">
+                Uses <em>GNU Lightning</em> as assembler backend.
+              </p>
+            </div>
+            <aside class="notes">
+              <p>
+                So, the instructions in a loop been recorded, the recorded
+                instructions are passed to the compiler.
+              </p>
+              <p>
+                The compiler is written in Scheme, ran by Guile's bytecode
+                interpreter.
+              </p>
+              <p>
+                The compiler uses A-normal form internal representation.
+              </p>
+              <p>
+                And the compiler uses a JIT library called GNU lightning as
+                backend. In general, tracing JIT tries to do the computational
+                works in compiled native code as much as possible, to improve
+                the performance.
+              </p>
+            </aside>
+          </section>
+          <section data-background="#f9c7c3">
+            <div style="float: left; width: 50%; text-align: left;">
+              <pre style="font-size: 18px; background-color: #ffffff; padding: 10px;"
+                   data-trim>
+;;; trace 1: bytecode 16
+7f39397e92f0  (br-if-< 7 8 #f 26)
+7f39397e92fc  (mul 3 4 4)
+7f39397e9300  (mul 2 5 5)
+7f39397e9304  (toplevel-box 1 3089 2909 2897 #t)
+7f39397e9318  (box-ref 1 1)
+7f39397e931c  (add 0 3 2)
+7f39397e9320  (br-if-< 1 0 #f 12)
+7f39397e932c  (add/immediate 8 8 1)
+7f39397e9330  (sub 3 2 3)
+7f39397e9334  (add 3 3 11)
+7f39397e9338  (mul 5 6 5)
+7f39397e933c  (mul 5 5 4)
+7f39397e9340  (add 5 5 10)
+7f39397e9344  (mov 4 5)
+7f39397e9348  (mov 5 3)
+7f39397e934c  (br -23)</pre>
+              <p class="fragment" data-fragment-index="2">
+                IR contains <span class="fragment highlight-blue"
+                data-fragment-index="3">a prologue section</span> and
+                <span class="fragment highlight-red" data-fragment-index="4">a
+                loop body section</span>.
+              </p>
+              <p class="fragment" data-fragment-index="5">
+                Prologue section loads locals from <em>the stack</em>, the stack
+                is shared with the interpreter.
+              </p>
+              <!-- <p class="fragment" data-fragment-index="6"> -->
+              <!--   After compilation, the control flow goes back to the -->
+              <!--   interpreter. -->
+              <!-- </p> -->
+            </div>
+            <div class="fragment" style="float: right; width: 50%;"
+                 data-fragment-index="1">
+              <pre style="font-size: 18px;
+                          background-color: #ffffff; padding: 10px;"
+                   data-trim>
+;;; trace 1: anf
+<span class="fragment highlight-blue" data-fragment-index="3">(lambda ()
+  (let* ((_    (%snap 0))
+         (v0   (%sref/f 0 2))
+         (v2   (%sref/f 2 2))
+         (v3   (%sref/f 3 2))
+         (v4   (%sref/f 4 2))
+         (v5   (%sref/f 5 2))
+         (v6   (%sref/f 6 2))
+         (v7   (%sref 7 1))
+         (v8   (%sref 8 1))
+         (v10  (%sref/f 10 2))
+         (v11  (%sref/f 11 2)))
+    (loop v0 v1 v2 v3 v4 v5 v6 v7 v8 v10 v11)))</span>
+<span class="fragment highlight-red" data-fragment-index="4">(lambda (v0 v1 v2 v3 v4 v5 v6 v7 v8 v10 v11)
+  (let* ((_    (%snap 1 v0 v1 v2 v3 v4 v5 v8))
+         (_    (%ge v7 v8))
+         (v3   (%fmul v4 v4))
+         (v2   (%fmul v5 v5))
+         (v1   (%cref 15967664 1))
+         (v0   (%fadd v3 v2))
+         (_    (%snap 2 v0 v1 v2 v3 v4 v5 v8))
+         (_    (%typeq v1 2))
+         (f2   (%cref/f v1 2))
+         (_    (%fge f2 v0))
+         (_    (%snap 3 v0 v1 v2 v3 v4 v5 v8))
+         (v8   (%addov v8 4))
+         (v3   (%fsub v2 v3))
+         (v3   (%fadd v3 v11))
+         (v5   (%fmul v6 v5))
+         (v5   (%fmul v5 v4))
+         (v5   (%fadd v5 v10))
+         (v4   v5)
+         (v5   v3))
+    (loop v0 v1 v2 v3 v4 v5 v6 v7 v8 v10 v11)))</span></pre>
+            </div>
+            <aside class="notes">
+              <p>
+                Continuing with the mandelbrot example. Recorded instructions
+                from the loop is shown again. IR of the recorded instruction
+                looks like ...
+              </p>
+              <p>
+              the right side.
+              </p>
+              <p>
+                IR contains ...
+              </p>
+              <p>a prologue section, and ...</p>
+              <p>a loop body section.</p>
+              <p>
+                The prologue section loads locals from the stack, which is
+                shared with the interpreter.
+
+                <!-- In sophisticated tracing JIT compiler, the loads of locals are -->
+                <!-- kept minimum, possibly applying loop invariant code -->
+                <!-- motion. However, compiler in Nash is not much sophisticated at -->
+                <!-- the moment, it is likely to contain some redundant loads. -->
+              </p>
+              <p>
+                After the compilation, the control flow goes back to the
+                interpreter. It goes back no matter whether the compilation
+                succeeded or failed. At the moment, unfortunately Nash cannot
+                compile all of the bytecode instruction exist in Guile. When the
+                compiler saw unsupported bytecode instruction, it simply aborts
+                the compilation, and falls back to the interpreter.
+              </p>
+            </aside>
+          </section>
+
+          <section data-background="#bfe7dc">
+            <div style="float: left;">
+              <img data-src="overview-03.gv.svg" alt="overview diagram"
+                   style="border: none;">
+            </div>
+            <div style="float: right; width: 50%; text-align: left;">
+              <p>
+                When the interpreter found compiled native code with current
+                bytecode IP, it runs the native code.
+              </p>
+              <p class="fragment">
+                Native code runs until guard fails.
+              </p>
+              <p class="fragment">
+                <em>Bailout code</em> recovers VM state and pass back the
+                control of user program to the intepreter.
+              </p>
+            </div>
+            <aside class="notes">
+              <p>
+                So, the recorded trace is compiled to native code, and the
+                control flow is passed back to the interpreter. The interpreter
+                is likely to encounter the beginning of the loop immediately
+                after the compilation, compiled native code exits, thus the
+                interpreter runs the native code.
+              </p>
+              <p>
+                The native code runs until any of the guard has failed. When
+                guard failed, a special part of the native code called bailout
+                code are invoked.
+              </p>
+              <p>
+                The bailout code recovers the state of virtual machine and pass
+                back the control of user programs to the interpreter.
+              </p>
+            </aside>
+          </section>
+
+          <section data-background="#f9c7c3">
+            <div style="float: left; width: 50%;">
+              <p>IR of recorded trace</p>
+              <pre style="font-size: 18px;
+                          background-color: #ffffff; padding: 10px;" data-trim>
+;;; trace 1: anf
+(lambda ()
+  (let* ((_    (%snap 0))
+         (v0   (%sref/f 0 2))
+         (v2   (%sref/f 2 2))
+         (v3   (%sref/f 3 2))
+         (v4   (%sref/f 4 2))
+         (v5   (%sref/f 5 2))
+         (v6   (%sref/f 6 2))
+         (v7   (%sref 7 1))
+         (v8   (%sref 8 1))
+         (v10  (%sref/f 10 2))
+         (v11  (%sref/f 11 2)))
+    (loop v0 v1 v2 v3 v4 v5 v6 v7 v8 v10 v11)))
+(lambda (v0 v1 v2 v3 v4 v5 v6 v7 v8 v10 v11)
+  (let* ((_    (%snap 1 v0 v1 v2 v3 v4 v5 v8))
+         (_    <span class="fragment highlight-red" data-fragment-index="3">(%ge v7 v8)</span>)
+         (v3   (%fmul v4 v4))
+         (v2   (%fmul v5 v5))
+         (v1   (%cref 15967664 1))
+         (v0   (%fadd v3 v2))
+         (_    (%snap 2 v0 v1 v2 v3 v4 v5 v8))
+         (_    (%typeq v1 2))
+         (f2   (%cref/f v1 2))
+         (_    <span class="fragment highlight-red" data-fragment-index="4">(%fge f2 v0)</span>)
+         (_    (%snap 3 v0 v1 v2 v3 v4 v5 v8))
+         (v8   (%addov v8 4))
+         (v3   (%fsub v2 v3))
+         (v3   (%fadd v3 v11))
+         (v5   (%fmul v6 v5))
+         (v5   (%fmul v5 v4))
+         (v5   (%fadd v5 v10))
+         (v4   v5)
+         (v5   v3))
+    (loop v0 v1 v2 v3 v4 v5 v6 v7 v8 v10 v11)))</pre>
+            </div>
+            <div style="float: right; width: 50%;"
+                 data-fragment-index="1">
+              <p>Native code of loop body (x86-64)</p>
+              <pre style="font-size: 18px; background-color: #ffffff; padding:
+                          10px;" data-trim>
+;;; trace 1: ncode 624
+...
+loop:
+<span class="fragment highlight-red" data-fragment-index="3">0x01ee61c8 cmp    r14,r15
+0x01ee61cb jl     0x01efe028    ->1</span>
+0x01ee61d1 movsd  xmm13,xmm14
+0x01ee61d6 mulsd  xmm13,xmm14
+0x01ee61db movsd  xmm12,xmm15
+0x01ee61e0 mulsd  xmm12,xmm15
+0x01ee61e5 mov    r9,QWORD PTR ds:0x1cac5a8
+0x01ee61ed movsd  xmm11,xmm13
+0x01ee61f2 addsd  xmm11,xmm12
+0x01ee61f7 test   r9,0x6
+0x01ee61fe jne    0x01efe030
+0x01ee6204 mov    rax,QWORD PTR [r9]
+0x01ee6207 and    rax,0xffff
+0x01ee620d cmp    rax,0x217
+0x01ee6213 jne    0x01efe030
+0x01ee6219 movsd  xmm10,QWORD PTR [r9+0x10]
+<span class="fragment highlight-red" data-fragment-index="4">0x01ee621f ucomisd xmm11,xmm10
+0x01ee6224 ja     0x01efe030    ->2</span>
+0x01ee622a mov    r11,r15
+0x01ee622d add    r11,0x4
+0x01ee6231 jo     0x01efe038
+0x01ee6237 mov    r15,r11
+0x01ee623a movsd  xmm8,xmm13
+0x01ee623f movsd  xmm13,xmm12
+0x01ee6244 subsd  xmm13,xmm8
+0x01ee6249 addsd  xmm13,xmm5
+0x01ee624e mulsd  xmm15,xmm7
+0x01ee6253 mulsd  xmm15,xmm14
+0x01ee6258 addsd  xmm15,xmm6
+0x01ee625d movsd  xmm14,xmm15
+0x01ee6262 movsd  xmm15,xmm13
+0x01ee6267 jmp    0x01ee61c8    ->loop
+...</pre>
+            </div>
+            <aside class="notes">
+              <p>
+                The left side is the IR of recorded trace, same as the one shown
+                previously. The code on the right side is the native code of
+                loop body under x86-64 architecture. The assembly is written in
+                Intel format. I'm skipping most of the details of this native
+                code. Recall that the mandelbrot procedure had a loop containing
+                two comparisons, one comparing the variable i with max
+                iterations, and another comparing the sum of z's with bailout.
+              </p>
+              <p>
+                The two comparisons remains as two guards ...
+              </p>
+              <p>
+                ... in the native code.
+              </p>
+            </aside>
+          </section>
+
+          <section data-background="#ffffff">
+            <h2>Benchmarks</h2>
+            <aside class="notes">
+              <p>
+                That was enough for Nash's overview. Showing how well does Nash
+                perform.
+              </p>
+            </aside>
+          </section>
+          <section>
+            <p>Total time normalized to Guile bytecode interpreter</p>
+            <img data-src="hist.plot.svg" alt="histogram"
+                 class="stretch" style="border: none;">
+            <div class="fragment">
+            <table>
+              <thead>
+                <tr>
+                  <td></td>
+                  <td>sumfp</td>
+                  <td>mbrot</td>
+                  <td>sum</td>
+                  <td>string</td>
+                  <td>parsing</td>
+                  <td>fibc</td>
+                  <td>dynamic</td>
+                  <td>GM</td>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Nash</td>
+                  <td>0.024</td>
+                  <td>0.034</td>
+                  <td>0.119</td>
+                  <td>1.115</td>
+                  <td>1.654</td>
+                  <td>1.678</td>
+                  <td>2.506</td>
+                  <td>0.400</td>
+                </tr>
+                <!-- <tr> -->
+                <!--   <td>Interpreter<br />w/o bytecode</td> -->
+                <!--   <td>7.926</td> -->
+                <!--   <td>6.626</td> -->
+                <!--   <td>42.579</td> -->
+                <!--   <td>1.125</td> -->
+                <!--   <td>9.685</td> -->
+                <!--   <td>2.507</td> -->
+                <!--   <td>6.359</td> -->
+                <!--   <td>13.770</td> -->
+                <!-- </tr> -->
+              </tbody>
+            </table>
+            <p class="fragment">
+              &quot;sumfp&quot; and &quot;mbrot&quot; contain loops with floting
+              point number computations.
+            </p>
+            <p class="fragment">
+              &quot;string&quot; and &quot;fibc&quot; mostly use procedures
+              implemented in C.
+            </p>
+            <p class="fragment">
+              &quot;parsing&quot; and &quot;dynamic&quot; contain large amount
+              of data-driven conditional branches.
+            </p>
+            </div>
+            <aside class="notes">
+              <p>
+                The shown graph contains benchmark results of Scheme cross
+                platform benchmark suite. The benchmark suite contains 57
+                programs. The benchmark results are normalized to Guile's
+                bytecode interpreter, lower value than one means that Nash
+                performed better than existing Guile bytecode interpreter.
+
+                We can see that 52 out of 57 programs ran faster with Nash. In
+                other words, the performance in Nash was worse than Guile's
+                bytecode interpreter for 5 programs: ctak, string, parsing,
+                fibc, and dynamic.
+              </p>
+              <p>
+                Showing some of the results in numbers, and geometric mean of
+                the benchmark suite. The benchmark sumfp ran about 40 times
+                faster, and mbrot ran about 30 times faster.
+              </p>
+              <p>
+                These two programs contain loops with floating point number
+                computations. The loops contain not much conditional
+                branches. It is known that the tracing JIT technique works well
+                in this kind of programs. Nash achieved this much performance
+                improvement in floating point number loops because Guile, and
+                typical Scheme implementations, uses heap objects to represent
+                floating point numbers. And Nash did flonum arithmetics without
+                boxing and unboxing the heap objects.
+
+                The benchmark sum, also contains tight loop but it does not
+                contain floating point arithmetic, contains only small fixnum
+                operations. Not all of the programs worked well with Nash. The
+                string benchmark contains string related procedures, like
+                string-append and substring.
+              </p>
+              <p>
+                Most of these string related procedures are implemented in C,
+                thus there's not much difference between Nash and Guile's
+                bytecode interpreter, or Nash showing worse results since it has
+                profiling and compilation overhead. Similar thing could be said
+                to benchmarks relating to continuation, since Guile uses C
+                function to implement call/cc.
+              </p>
+              <p>
+                Parsing and dynamic benchmark performed not well in Nash, since
+                these programs contain lots of data driven conditional
+                branches. Data-driven conditional branches causes tracing JIT
+                compiler to make lots of traces, and Nash is not enough
+                sophisticated to handle these kind of situations.
+              </p>
+            </aside>
+          </section>
+          <section>
+            <p>Geometric standard scores of benchmark results from 10 Scheme
+            native code compilers</p>
+            <img data-src="dist.plot.svg" alt="distribution"
+                 class="stretch" style="border: none;">
+            <table class="fragment">
+              <thead>
+                <tr>
+                  <td></td>
+                  <td>Chez</td>
+                  <td>Bigloo</td>
+                  <td>Ikarus</td>
+                  <td>Pycket</td>
+                  <td>Gambit</td>
+                  <td>Larceny</td>
+                  <td>Racket</td>
+                  <td>Nash</td>
+                  <td>Chicken</td>
+                  <td>MIT</td>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>GM</td>
+                  <td>0.148</td>
+                  <td>0.236</td>
+                  <td>0.244</td>
+                  <td>0.252</td>
+                  <td>0.274</td>
+                  <td>0.301</td>
+                  <td>0.324</td>
+                  <td>0.400</td>
+                  <td>0.448</td>
+                  <td>0.486</td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="fragment">
+              Nash showed the best score in &quot;string&quot;, but Guile
+              bytecode interpreter was faster.
+            </p>
+            <p class="fragment">
+              &quot;parsing&quot; was the slowest benchmark.
+            </p>
+            <aside class="notes">
+              <p>
+                Next diagram shows geometric standard scores of benchmark
+                results from 10 Scheme native code compilers, shown as box plot,
+                lower value is better. 10 implementations are ...
+              </p>
+              <p>
+                Chez, Bigloo, Ikarus, Pycket, Gambit, Larceny, Racket, Nash,
+                Chicken, and MIT. The numbers below each implementation is
+                showing geometric mean of the benchmark suite, normalized
+                to Guile's bytecode interpreter.
+                I used geometric standard scores to compute the distributions
+                since total time of benchmark programs are positive
+                numbers. Those green points are the scores of Nash.
+              </p>
+              <p>
+                ... Well, we can see that Chez scheme is really fast.
+                In 14 benchmarks, from sumfp to pnpoly, Nash showed scores
+                better than average.
+              </p>
+              <p>
+                One of the interesting thing I found was that Nash shows the best
+                score in string benchmark, but as we saw in previous slide,
+                Guile's bytecode interpreter was faster than Nash.
+              </p>
+              <p>
+                Another thing I thought interesting was for parsing benchmark,
+                Guile was showing poor score, but the score of Pycket was not so
+                bad. Pycket is an implementation using tracing JIT with using a
+                framework used by Pypy. Seems like the poor result of parsing in
+                Nash is not because of the use of tracing JIT, but Nash's own
+                fault.
+              </p>
+            </aside>
+          </section>
+          <section>
+            <h3>Pros and cons of Nash</h3>
+            <div style="text-align: left;">
+              <div style="float: left; width: 50%;">
+                <p class="fragment">
+                  Significant improvement in tight loop with floating point
+                  arithmetic computations.
+                </p>
+                <p class="fragment">
+                  No need to use &quot;fl+&quot;, &quot;fx+&quot;, ... etc.
+                </p>
+              </div>
+              <div style="float: right; width: 50%;">
+                <p class="fragment">
+                  Not much differences in procedures implemented in C.
+                </p>
+                <p class="fragment">Not much suited for programs with large
+                  number of conditional branches, e.g.: parser, interpreter, and
+                  compiler.
+                </p>
+                <p class="fragment">JIT warming up time.</p>
+              </div>
+            </div>
+            <aside class="notes">
+              <p>
+                I'm summarizing some pros and cons of Nash. Advantages of Nash
+                are ...
+              </p>
+              <p>
+                Quite obvious, it performs well with tight loops containing
+                floating point arithmetic computations. It runs like 4 to 50
+                times faster than Guile's bytecode interpreter. Also Nash runs
+                faster than other Scheme implementations, except for Pycket, in
+                this kind of programs. I'd like to point out that ...
+              </p>
+              <p>
+                There's no need to specify arithmetic operations with type
+                specific operators such as fl+ and fx+, since tracing JIT
+                detects the type from runtime values.
+              </p>
+              <p>
+                Things showed not much differences are programs calling C
+                functions a lot. This might be specific to Guile, because large
+                part of primitive procedures are implemented in C in Guile, like
+                string related functions I described. This also means that
+                programs depending on the performance of garbage collector will
+                get less performance improvements with Nash, since Guile uses
+                the libgc for garbage collector. Garbage collector related
+                problem are not always a problem in tracing JIT. Other mature
+                tracing JIT implementations does more sophisticated optimization
+                during compilation to remove allocations, but allocation removal
+                optimizations are not done in Nash yet.
+              </p>
+              <p>
+                Another disadvantage is, seems like Nash is not much suited to
+                programs with data-driven conditional branches, such as parser,
+                interpreters, and compiler. I'm bit not sure whether this is a
+                problem in tracing JIT or not for parser, since the performance
+                of Pycket in parsing benchmark. However, probably there's not
+                enough micro benchmarks and real world programs using tracing
+                JIT for compilers and interprers, or maybe just I'm not aware of
+                it.
+              </p>
+              <p>
+                Another is JIT warming up time. At the beginning, Nash used CPS
+                IR, because Guile already used CPS data type during Scheme to
+                bytecode compilation. But switched to Use of ANF IR because the
+                use CPS compilation had once become a bottleneck. The CPS data
+                type was designed to be used mainly in ahead of time
+                compilations, not for JIT. The JIT compilation time has improved
+                since then, but it still counts when running simple script.
+              </p>
+            </aside>
+          </section>
+          <section>
+            <h3>Questions?</h3>
+            <aside class="notes">
+              That's all from me, any questions?
+            </aside>
+          </section>
+          <section>
+            <h2>Thank you</h2>
+            <a href="http://github.com/8c6794b6/guile-tjit">
+              http://github.com/8c6794b6/guile-tjit
+            </a><br>
+          </section>
+          <!-- <section data-markdown> -->
+          <!--   <script type="text/template"> -->
+          <!--     ## Page title -->
+
+          <!--     A paragraph with some texts and [link](http://www.freebsd.org). -->
+          <!--   </script> -->
+          <!-- </section> -->
+      </div>
+    </div>
+    <script src="lib/js/head.min.js"></script>
+    <script src="js/reveal.js"></script>
+    <script>
+
+      // More info https://github.com/hakimel/reveal.js#configuration
+      Reveal.initialize({
+      controls: false,
+      progress: true,
+      history: true,
+      center: true,
+      slideNumber: true,
+
+      width: "1600",
+      height: "900",
+      margin: 0.1,
+
+      transition: 'slide', // none/fade/slide/convex/concave/zoom
+
+      // More info https://github.com/hakimel/reveal.js#dependencies
+      dependencies: [
+      { src: 'lib/js/classList.js', condition: function() {return !document.body.classList;}},
+      { src: 'plugin/markdown/marked.js', condition: function() {return !!document.querySelector('[data-markdown]');}},
+      { src: 'plugin/markdown/markdown.js', condition: function() {return !!document.querySelector('[data-markdown]');}},
+      { src: 'plugin/highlight/highlight.js', async: true, callback: function() {hljs.initHighlightingOnLoad();}},
+      { src: 'plugin/zoom-js/zoom.js', async: true },
+      { src: 'plugin/notes/notes.js', async: true }
+      ]
+      });
+    </script>
+  </body>
+</html>
