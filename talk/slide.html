@@ -20,38 +20,27 @@
           <aside class="notes">
             <p> (greeting) Hello everyone, I'm xxx..., today I'd like to talk
               about Nash, an experimental tracing JIT VM for GNU Guile.
-            </p>
-            <p>Demo: (Run the mandelbrot20.scm with guile). The program
-              currently running is a Scheme script repeatedly showing mandelbrot
-              sets as an ASCII art. The program is running by GNU Guile. The
-              program contains loops, the mandelbrot set is shown repeatedly for
-              20 times, and each mandelbrot set contains loops to show lines,
-              and each line contains a loop for each character. And ... it took
-              about XXX seconds under my machine.
-            </p>
-            <p>Now I'm running the same program with Nash, an experimental tracing
-              JIT virtual machine for GNU Guile. ... it took about XXX seconds,
-              which is about 50 times faster than previous run.
           </aside>
         </section>
-        <!-- <section> -->
-        <!--   <h2>Contents</h2> -->
-        <!--   <p>Background</p> -->
-        <!--   <p>Nash Overview</p> -->
-        <!--   <p>Evaluation</p> -->
-        <!--   <aside class="notes"> -->
-        <!--     This slide has speaker notes.  The area for showing speaker notes is -->
-        <!--     not so big, wondering how it behaves when the contents of notes are -->
-        <!--     overflowed. ... Seems like the area could be scrolled. -->
-        <!--   </aside> -->
-        <!-- </section> -->
         <section>
           <h2>Tracing JIT</h2>
           <aside class="notes">
-            So, what is tracing JIT? Tracing JIT is a technique used in VM to
-            improve performance. Some real world example exist, such as LuaJIT
-            for the Lua programming language, and Pypy for the Python
-            programming language.
+            Tracing JIT is a technique used in virtual machines to improve
+            performance. I will start the talk with a demo.
+            <p>Demo: (Run the mandelbrot20.scm with guile). The program
+              currently running is a Scheme script showing repetation of
+              mandelbrot sets ASCII art. The program is running with GNU
+              Guile. The program contains nested loops, the mandelbrot set is
+              repeated, lines are repeated, and characters are repeated.  ... it
+              took about XXX seconds under my machine.
+            </p>
+            <p>Now I'm running the same program with turning tracing JIT option
+              on, ... it took about XXX seconds, which is about 50 times faster
+              than previous run.
+            </p>
+            So ... tracing JIT. Tracing JIT is a technique to improve
+            performance.  Some real world examples are, LuaJIT for the Lua
+            programming language, and Pypy for the Python programming language.
           </aside>
         </section>
         <section>
@@ -67,22 +56,22 @@
           </ul>
           <aside class="notes">
             <p>
-            The performance improvement achieved by tracing JIT is based on some
+            The performance improvement by tracing JIT is based on some
             assumptions.
             </p>
             <p>
               One is, programs spend most of their runtime in loops. Typical
               tracing JIT VM contains bytecode interpreter. The interpreter
-              observes the bytecode instructions and seeks for hot
-              loop. Bytecode instructions inside the loop are recorded, then
-              compiled to native code
+              observes the bytecode instructions and seeks for hot loops. The
+              instructions inside the detected loop are recorded, then compiled
+              to native code
             </p>
             <p>
               Another assumption is, that several iterations of the same loop
               are likely to take similar code paths. To achieve performance
-              improvement, need to call the compiled native code instead of
-              interpreting the bytecode of the loop. Compiling to native code
-              and never calling them, will not result in performance
+              improvement, the virtual machine need to call the compiled native
+              code instead of interpreting the bytecode. Compiling a native code
+              and never calling them again will not result in performance
               improvement.
             </p>
           </aside>
@@ -104,41 +93,39 @@
             </p>
 
             <p>
-              A trace is a sequence of instructions, in most case the
-              instruction sequence corresponds to a loop.  Typcally, tracing JIT
-              VM has an interpreter which count the number of loop iterations,
-              and the counter has certain threshold. When the loop count exceed
-              that threshold, the interpreter start recording the instructions
-              inside the loop.
+              A trace is a recorded instruction sequence. In most case, the
+              instruction sequence corresponds to a loop.  Typical tracing JIT
+              VM has an interpreter which count the numbers of loop iterations.
+              The counter has certain threshold. When the loop count exceed that
+              threshold, the interpreter start recording the instructions inside
+              the loop.
             </p>
 
             <p>
               Fragment is an artifact made from a trace. Fragment contains
-              accompanying native code of the recorded instructions, and some
-              other useful meta information for the virtual machine, such as
-              instruction pointer of bytecode to enter the native code.
+              native code of the trace, and some other meta information for the
+              virtual machine, such as instruction pointer of bytecode to enter
+              the native code.
             </p>
 
             <p>
               Guard is a test inserted to native code. Because the recorded
               instructions are derived from a loop, compiled native code need to
               exit from that loop at certain point. The test code inserted by a
-              guard checks whether the native code suffice the same condition
-              appeared in trace at the time of recording. When the test failed,
-              the VM fall back to the bytecode interpreter instead of executing
-              native code. Later on, similar code paths of the native code with
-              failed guard may traced again.
+              guard checks whether the native code still fulfill the condition
+              appeared at the time of recording. When the test fails, the VM
+              will fall back to the bytecode interpreter instead of executing
+              native code.
             </p>
           </aside>
         </section>
         <section>
           <h2>GNU Guile</h2>
           <aside class="notes">
-            That was a brief explanation of tracing JIT, and now moving on to
-            GNU Guile.  GNU Guile is an implementation of Scheme. Speaking
-            precisely, Guile can run other language than Scheme. However, Scheme
-            is the most mature language implemented in Guile, and probably the
-            most popular language used by the Guile users.
+            GNU Guile.  GNU Guile is an implementation of Scheme. Actually,
+            Guile can run other language than Scheme, but Scheme is the most
+            mature language implemented in Guile, and probably the most popular
+            language used by the Guile users.
           </aside>
         </section>
           <section>
@@ -174,11 +161,9 @@
               </div>
             </div>
             <div style="float: right; width: 45%;">
-              <!-- <div class="fragment" data-fragment-index="2"> -->
             <pre class="fragment" data-fragment-index="2"
                  style="font-size: 18px; padding: 10px;"
-                 data-trim
-                 >
+                 data-trim>
 Disassembly of mandelbrot at #x2a8:
 
    0    (assert-nargs-ee/locals 3 9)
@@ -218,27 +203,24 @@ Disassembly of mandelbrot at #x2a8:
                  </pre></div> <!-- </div> -->
             <aside class="notes">
               <p>
-                Guile compiles Scheme source code to bytecode before
-                executing. The bytecode compilation could happen ahead of time
-                when running a script, or could happen incrementally when using
-                REPL.
+                Guile compiles Scheme source code to bytecode. The compilation
+                could happen ahead of time when running a script, or could
+                happen incrementally when using REPL.
               </p>
               <p>
-                The scheme Source code shown in the left is the procedure used
-                to draw ASCII art of mandelbrot set. It takes two arguments, x
-                and y for drawing single character. The procedure contains a
-                loop, which has two exit points, one comparing the variable i
-                with max iterations, and another comparing bailout with the sum
-                of zi2 and zr2.
+                Showing the source code of one of the procedures in mandelbrot
+                program. It takes two arguments, x and y, to draw a
+                character. The procedure contains a loop, which has two exits,
+                one comparing the variable i with max iterations, and another
+                comparing bailout with the sum of zi2 and zr2.
               </p>
               <p>
-                The code shown in the right is the contents of bytecode of the
-                mandelbrot procedure. I'm skipping the detail for now, but we
-                can see that ...
+                The code on the right side is the compiled bytecode of the
+                mandelbrot procedure. we can see that ...
               </p>
               <p>
                 the bytecode has flat structure, and the bytecode contains
-                labels for jump destination.
+                labels to denote jump destinations.
               </p>
             </aside>
           </section>
@@ -248,7 +230,7 @@ Disassembly of mandelbrot at #x2a8:
                 Compiled bytecode instructions are interpreted by a C function.
               </p>
               <p class="fragment" data-fragment-index="1">
-                The C function is called <em>VM-engine</em>.
+                ... which is called <em>VM-engine</em>.
               </p>
               <p class="fragment">
                 VM-engine contains a huge <code>switch ... case</code>
@@ -280,32 +262,30 @@ VM_NAME (scm_i_thread *thread, struct scm_vm *vp,
                 Compiled bytecode instructions are interpreted by a C function ...
               </p>
               <p>
-                ... which is called VM-engine in guile documentation.
+                ... which is called VM-engine.
               </p>
               <p>
-                The excerpt of the C function looks like the one shown in the
-                right side. I'm skipping the detail again, though we can see
-                that it contains definitions call, call-label, and tail-call
-                with C macro VM_DEFINE_OP.
+                The C function contains definitions of bytecode instructions,
+                which are defined with C macro named VM_DEFINE_OP.
               </p>
               <p>
-                Roughly speaking, the bytecode instruction definition macros
-                expand to huge switch and case statement.
+                VM-engine contains huge switch ... case statement.  Roughly
+                speaking, the VM_DEFINE_OP macros are expanded to make a huge
+                switch and case statement.
               </p>
             </aside>
           </section>
           <section>
             <h2>Nash Overview</h2>
             <aside class="notes">
-              That was enough for Guile background, now moving on to Nash
-              overview. Nash, is an alternate VM-engine for Guile. It is
-              designed to work as a drop in replacement of the current VM-engine
-              C function.
+              Now moving on to Nash overview. Nash, is an alternate VM-engine
+              for Guile. It is designed to work as a drop in replacement for the
+              VM-engine C function.
             </aside>
           </section>
           <section>
             <div style="float: left;">
-              <img data-src="overview.gv.ssvg" alt="overview diagram"
+              <img data-src="overview.gv.svg" alt="overview diagram"
                    style="border: none;">
             </div>
             <div class="fragment"
@@ -319,8 +299,7 @@ VM_NAME (scm_i_thread *thread, struct scm_vm *vp,
             </div>
             <aside class="notes">
               <p>
-                The diagram in the left shows a control flow of Nash running a
-                program.
+                The diagram shows a control flow of Nash running a user program.
               </p>
               <p>
                 There are three key components, Nash interpreter, Nash compiler,
@@ -351,33 +330,26 @@ VM_NAME (scm_i_thread *thread, struct scm_vm *vp,
             </div>
             <aside class="notes">
               <p>
-                When a program starts, it starts from the interpreter.
+                User programs start from the interpreter.
               </p>
               <p>
-                While the interpreter interprets bytecodes, it observes each
-                bytecode, and certain instructions are treated as loop beginning
-                instructions, such as backward jump. In this phase, Nash
-                interpreter runs slower than Guile's ordinal bytecode
-                interpreter since there are some profiling overheads coming from
-                hot loop detection. Good tracing JIT virtual machines try to
-                minimize this overhead. In Nash's case, typically the overhead
-                stays none to few percents speed down.
+                While it interprets bytecode, it observes each bytecode
+                instruction, seeks for hot loops. Certain instructions are
+                treated as loop beginning instructions, such as backward
+                jump. In this phase, Nash interpreter runs slower than Guile's
+                ordinal bytecode interpreter due to profiling overheads.
               </p>
               <p>
                 When a hot loop was detected, the interpreter looks up
-                accompanying native code. Bytecode instruction in compiled
-                Scheme procedure has absolute address where it was loaded, and
-                the fragment keeps the address where the loop of recorded trace
-                has started. Nash uses this absolute address of the bytecode
-                instruction and types of variables in current stack as lookup
-                key. The types are not always used, but are used when supporting
-                bytecode instructions with polymorphic types.
+                accompanying native code. The interpreter uses bytecode
+                instruction Nash uses absolute address of the bytecode
+                instruction as one of the lookup keys. In the beginning, no
+                native code are found.
               </p>
               <p>
-                When no native code were found, the interpreter starts recording
-                the instruction in the loop. The recording continues until the
-                interpreter reach to the instruction appeared in the beginning
-                of the loop.
+                If no native code were found, the interpreter starts the
+                recording of the instruction. The recording continues until the
+                loop reaches to the end.
               </p>
             </aside>
           </section>
@@ -426,18 +398,18 @@ L3:
             <div style="float: right; width: 45%;">
               <div style="text-align: left;">
                 <p class="fragment" data-fragment-index="1">
-                  IP 41: (br -23) is a backward jump instruction.
+                  IP 41 (br -23) is a backward jump instruction.
                 </p>
                 <p class="fragment" data-fragment-index="2">
-                  The interpreter jumps back to IP 18: (br-if-7 8 #f 20), which
+                  The interpreter jumps back to IP 18 (br-if-7 8 #f 20), which
                   is marked as L1, the label one.
                 </p>
                 <p class="fragment" data-fragment-index="3">
                   Then the interpreter records the instructions between IP 18
                   and 41.
                 </p>
-                <p class="fragment" data-fragment-index="4">Recorded trace looks
-                like:</p>
+                <p class="fragment" data-fragment-index="4">Recorded trace:
+                </p>
               </div>
               <pre class="fragment"
                    data-fragment-index="4"
@@ -465,27 +437,27 @@ L3:
             </div>
             <aside class="notes">
               <p>
-                For instance, the loop in procedure mandelbrot is traced in
-                following manner.  On the left side, showing the disassembled
-                bytecode of mandelbrot procedure again.
+                For instance, the loop in procedure mandelbrot is traced as
+                follows.  Showing the disassembled bytecode of mandelbrot
+                procedure again.
               </p>
               <p>
-                IP 41 contains the instruction br -23, which is a backward
-                jump.
+                Interpreter will detect that IP 41 is a backward jump
+                instruction.
               </p>
               <p>
-                The jump destination is IP 18, since 41 minus 23 is 18.
+                The interpreter jumps back to IP 18, which is marked as L1. The
+                jump destination is IP 18, because 41 minus 23 is 18.
               </p>
               <p>
                 After jumping back to IP 18, the interpreter records
-                instructions until it reached the bytecode address of IP 41.
-                Note that the disassembled procedure is showing relative IP
-                starting from 0.
+                instructions between IP 18 and IP 41.
               </p>
               <p>
                 Recorded trace is shown at the right bottom. Note that the
-                hexadecimal numbers on right side of the lines are absolute
-                bytecode address.
+                disassembled procedure is showing relative IP starting from 0,
+                and recorded trace is showing absolute bytecode address in
+                hexadecimal numbers, on right side.
               </p>
             </aside>
           </section>
@@ -555,10 +527,10 @@ L3:
                 Prologue section loads locals from <em>the stack</em>, the stack
                 is shared with the interpreter.
               </p>
-              <!-- <p class="fragment" data-fragment-index="6"> -->
-              <!--   After compilation, the control flow goes back to the -->
-              <!--   interpreter. -->
-              <!-- </p> -->
+              <p class="fragment">
+                IR to native code compilation is done in almost straight forward
+                manner.
+              </p>
             </div>
             <div class="fragment" style="float: right; width: 50%;"
                  data-fragment-index="1">
@@ -624,14 +596,6 @@ L3:
                 <!-- motion. However, compiler in Nash is not much sophisticated at -->
                 <!-- the moment, it is likely to contain some redundant loads. -->
               </p>
-              <p>
-                After the compilation, the control flow goes back to the
-                interpreter. It goes back no matter whether the compilation
-                succeeded or failed. At the moment, unfortunately Nash cannot
-                compile all of the bytecode instruction exist in Guile. When the
-                compiler saw unsupported bytecode instruction, it simply aborts
-                the compilation, and falls back to the interpreter.
-              </p>
             </aside>
           </section>
 
@@ -642,8 +606,12 @@ L3:
             </div>
             <div style="float: right; width: 50%; text-align: left;">
               <p>
-                When the interpreter found compiled native code with current
-                bytecode IP, it runs the native code.
+                After compilation, the control flow goes back to the
+                interpreter.
+              </p>
+              <p class="fragment">
+                The interpreter will find the native code of the loop from the
+                next iteration.
               </p>
               <p class="fragment">
                 Native code runs until guard fails.
@@ -654,6 +622,14 @@ L3:
               </p>
             </div>
             <aside class="notes">
+              <p>
+                After the compilation, the control flow goes back to the
+                interpreter. It goes back no matter whether the compilation
+                succeeded or failed. At the moment, unfortunately Nash cannot
+                compile all of the bytecode instruction exist in Guile. When the
+                compiler saw unsupported bytecode instruction, it simply aborts
+                the compilation, and falls back to the interpreter.
+              </p>
               <p>
                 So, the recorded trace is compiled to native code, and the
                 control flow is passed back to the interpreter. The interpreter
