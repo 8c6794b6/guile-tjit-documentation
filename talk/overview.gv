@@ -6,7 +6,8 @@ digraph Flow {
         fontname="Helvetica"
         bgcolor="transparent"
 
-        node [fontname="Helvetica"]
+        node [fontname="Helvetica"
+              ]
 
         subgraph cluster_interpreter {
                 label="Nash Interpreter";

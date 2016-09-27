@@ -4,7 +4,8 @@ digraph Flow {
         // nodesep=0.25;
         // nodesep=1;
         fontname="Helvetica"
-        bgcolor="transparent"
+        // bgcolor="transparent"
+        bgcolor="#ffffff"
 
         node [fontname="Helvetica"]
 
@@ -31,8 +32,10 @@ digraph Flow {
         }
 
         subgraph cluster_compiler {
-                style="filled";
-                color="#f9c7c3";
+                style="solid";
+                // color="#f9c7c3";
+                color="#cfcfcf";
+
                 node [shape=box,style="filled,bold",fillcolor="#bfdcec"] {
                         compile [label="Compile"];
                 }
@@ -47,8 +50,9 @@ digraph Flow {
 
         subgraph cluster_native {
                 label="Native code";
-                style="filled";
-                color="#bfe7dc";
+                style="solid";
+                // color="#bfe7dc";
+                color="#cfcfcf";
                 node [shape=box,style="filled,bold",fillcolor="#bfdcec"] {
                         native [label="Run compiled code"];
                         recover [label="Recover interpreter state"];

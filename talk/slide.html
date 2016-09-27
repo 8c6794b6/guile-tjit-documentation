@@ -18,29 +18,30 @@
           for
           <h3>GNU Guile</h3>
           <aside class="notes">
-            <p> (greeting) Hello everyone, I'm xxx..., today I'd like to talk
-              about Nash, an experimental tracing JIT VM for GNU Guile.
+            <p> (greeting) Hello everyone, my name is ..., today I'd like to
+              talk about Nash, an experimental tracing JIT virtual machine for
+              GNU Guile.
           </aside>
         </section>
         <section>
           <h2>Tracing JIT</h2>
           <aside class="notes">
             Tracing JIT is a technique used in virtual machines to improve
-            performance. I will start the talk with a demo.
+            performance. I am showing a short demo.
             <p>Demo: (Run the mandelbrot20.scm with guile). The program
-              currently running is a Scheme script showing repetation of
-              mandelbrot sets ASCII art. The program is running with GNU
-              Guile. The program contains nested loops, the mandelbrot set is
-              repeated, lines are repeated, and characters are repeated.  ... it
+              currently running is a Scheme script showing repeated ASCII art of
+              mandelbrot set. The program is running with GNU Guile. It contains
+              nested loops, the mandelbrot set is repeated, lines are repeated
+              in each set, and characters are repeated in each line.  ... it
               took about XXX seconds under my machine.
             </p>
-            <p>Now I'm running the same program with turning tracing JIT option
-              on, ... it took about XXX seconds, which is about 50 times faster
-              than previous run.
+            <p>Now I'm running the same program with setting tracing JIT option,
+              ... it took about XXX seconds, which is about 50 times faster than
+              the previous run.
             </p>
             So ... tracing JIT. Tracing JIT is a technique to improve
-            performance.  Some real world examples are, LuaJIT for the Lua
-            programming language, and Pypy for the Python programming language.
+            performance.  It is used in, LuaJIT for the Lua programming
+            language, and Pypy for the Python programming language.
           </aside>
         </section>
         <section>
@@ -56,15 +57,14 @@
           </ul>
           <aside class="notes">
             <p>
-            The performance improvement by tracing JIT is based on some
-            assumptions.
+            Tracing JIT is based on some assumptions.
             </p>
             <p>
               One is, programs spend most of their runtime in loops. Typical
-              tracing JIT VM contains bytecode interpreter. The interpreter
-              observes the bytecode instructions and seeks for hot loops. The
-              instructions inside the detected loop are recorded, then compiled
-              to native code
+              tracing JIT virtual machine contains bytecode interpreter. The
+              interpreter observes the bytecode instructions and seeks for hot
+              loops. The instructions inside the detected loop are recorded,
+              then compiled to native code
             </p>
             <p>
               Another assumption is, that several iterations of the same loop
@@ -91,31 +91,28 @@
             <p>
               Some key terms in tracing JIT are:
             </p>
-
             <p>
               A trace is a recorded instruction sequence. In most case, the
-              instruction sequence corresponds to a loop.  Typical tracing JIT
-              VM has an interpreter which count the numbers of loop iterations.
-              The counter has certain threshold. When the loop count exceed that
-              threshold, the interpreter start recording the instructions inside
-              the loop.
+              sequence is recorded from a loop. Typical tracing JIT virtual
+              machine has an interpreter which counts the number of loop
+              iterations.  The iteration count has certain threshold. When the
+              loop count exceed certain amount , the interpreter start recording
+              the instructions inside the loop.
             </p>
-
             <p>
               Fragment is an artifact made from a trace. Fragment contains
               native code of the trace, and some other meta information for the
               virtual machine, such as instruction pointer of bytecode to enter
               the native code.
             </p>
-
             <p>
               Guard is a test inserted to native code. Because the recorded
               instructions are derived from a loop, compiled native code need to
-              exit from that loop at certain point. The test code inserted by a
+              exit from that loop at certain point. A test code inserted by a
               guard checks whether the native code still fulfill the condition
-              appeared at the time of recording. When the test fails, the VM
-              will fall back to the bytecode interpreter instead of executing
-              native code.
+              appeared at the time of recording. When the test fails, the
+              virtual machine will fall back to the bytecode interpreter instead
+              of executing the native code.
             </p>
           </aside>
         </section>
@@ -208,10 +205,10 @@ Disassembly of mandelbrot at #x2a8:
                 happen incrementally when using REPL.
               </p>
               <p>
-                Showing the source code of one of the procedures in mandelbrot
-                program. It takes two arguments, x and y, to draw a
-                character. The procedure contains a loop, which has two exits,
-                one comparing the variable i with max iterations, and another
+                Showing the source code of a procedure in mandelbrot program. It
+                takes two arguments, x and y, to draw a character. The procedure
+                contains a loop, which has two comparisons to return a value.
+                One comparing the variable i with max iterations, and another
                 comparing bailout with the sum of zi2 and zr2.
               </p>
               <p>
@@ -219,8 +216,8 @@ Disassembly of mandelbrot at #x2a8:
                 mandelbrot procedure. we can see that ...
               </p>
               <p>
-                the bytecode has flat structure, and the bytecode contains
-                labels to denote jump destinations.
+                the bytecode has flat structure, and the bytecode contains jump
+                destination labels: L1, L2, and L3, which are colored in red.
               </p>
             </aside>
           </section>
@@ -233,7 +230,7 @@ Disassembly of mandelbrot at #x2a8:
                 ... which is called <em>VM-engine</em>.
               </p>
               <p class="fragment">
-                VM-engine contains a huge <code>switch ... case</code>
+                VM-engine could be viewed as a huge <code>switch ... case</code>
                 statement.
               </p>
             </div>
@@ -265,13 +262,11 @@ VM_NAME (scm_i_thread *thread, struct scm_vm *vp,
                 ... which is called VM-engine.
               </p>
               <p>
-                The C function contains definitions of bytecode instructions,
-                which are defined with C macro named VM_DEFINE_OP.
+                The C function contains all of the bytecode instruction
+                definitions, which are defined with C macro named VM_DEFINE_OP.
               </p>
               <p>
-                VM-engine contains huge switch ... case statement.  Roughly
-                speaking, the VM_DEFINE_OP macros are expanded to make a huge
-                switch and case statement.
+                VM-engine could be viewed as a huge switch ... case statement.
               </p>
             </aside>
           </section>
@@ -279,7 +274,7 @@ VM_NAME (scm_i_thread *thread, struct scm_vm *vp,
             <h2>Nash Overview</h2>
             <aside class="notes">
               Now moving on to Nash overview. Nash, is an alternate VM-engine
-              for Guile. It is designed to work as a drop in replacement for the
+              for Guile. It is designed to work as a drop in replacement of the
               VM-engine C function.
             </aside>
           </section>
@@ -299,15 +294,17 @@ VM_NAME (scm_i_thread *thread, struct scm_vm *vp,
             </div>
             <aside class="notes">
               <p>
-                The diagram shows a control flow of Nash running a user program.
+                The diagram shows a control flow of Nash running a user
+                program. There are three key components,
               </p>
               <p>
-                There are three key components, Nash interpreter, Nash compiler,
+                Nash interpreter, Nash compiler,
                 and native codes.
               </p>
             </aside>
           </section>
           <section data-background="#f9e7bf">
+          <!-- <section> -->
             <div style="float: left;">
               <img data-src="overview-01.gv.svg" alt="overview diagram"
                    style="border: none;">
@@ -333,23 +330,22 @@ VM_NAME (scm_i_thread *thread, struct scm_vm *vp,
                 User programs start from the interpreter.
               </p>
               <p>
-                While it interprets bytecode, it observes each bytecode
-                instruction, seeks for hot loops. Certain instructions are
-                treated as loop beginning instructions, such as backward
+                While it interprets bytecode, the interpreter observes each
+                bytecode instruction, seeks for hot loops. Certain instructions
+                are treated as loop beginning instructions, such as backward
                 jump. In this phase, Nash interpreter runs slower than Guile's
-                ordinal bytecode interpreter due to profiling overheads.
+                plain bytecode interpreter, due to the profiling overheads.
               </p>
               <p>
                 When a hot loop was detected, the interpreter looks up
-                accompanying native code. The interpreter uses bytecode
-                instruction Nash uses absolute address of the bytecode
-                instruction as one of the lookup keys. In the beginning, no
-                native code are found.
+                accompanying native code. The interpreter uses absolute address
+                of the bytecode instruction as lookup key.
               </p>
               <p>
-                If no native code were found, the interpreter starts the
-                recording of the instruction. The recording continues until the
-                loop reaches to the end.
+                For initial lookup, no native code will be found. If no native
+                code were found, the interpreter starts the recording of the
+                instruction. The recording continues until the loop reaches to
+                the end.
               </p>
             </aside>
           </section>
@@ -437,9 +433,8 @@ L3:
             </div>
             <aside class="notes">
               <p>
-                For instance, the loop in procedure mandelbrot is traced as
-                follows.  Showing the disassembled bytecode of mandelbrot
-                procedure again.
+                For instance, the loop in mandelbrot is traced as follows.
+                Showing the disassembled bytecode of mandelbrot procedure again.
               </p>
               <p>
                 Interpreter will detect that IP 41 is a backward jump
@@ -450,14 +445,14 @@ L3:
                 jump destination is IP 18, because 41 minus 23 is 18.
               </p>
               <p>
-                After jumping back to IP 18, the interpreter records
-                instructions between IP 18 and IP 41.
+                After jumping back to IP 18, the interpreter records until it
+                reaches to IP 41, where the loop has started.
               </p>
               <p>
                 Recorded trace is shown at the right bottom. Note that the
-                disassembled procedure is showing relative IP starting from 0,
-                and recorded trace is showing absolute bytecode address in
-                hexadecimal numbers, on right side.
+                disassembled procedure is showing relative IPs starting from 0,
+                on the other hand recorded trace is showing absolute bytecode
+                addresses in hexadecimal numbers.
               </p>
             </aside>
           </section>
@@ -478,7 +473,7 @@ L3:
             </div>
             <aside class="notes">
               <p>
-                So, the instructions in a loop been recorded, the recorded
+                The instructions in a loop has been recorded, the recorded
                 instructions are passed to the compiler.
               </p>
               <p>
@@ -490,9 +485,7 @@ L3:
               </p>
               <p>
                 And the compiler uses a JIT library called GNU lightning as
-                backend. In general, tracing JIT tries to do the computational
-                works in compiled native code as much as possible, to improve
-                the performance.
+                backend.
               </p>
             </aside>
           </section>
@@ -575,12 +568,11 @@ L3:
             </div>
             <aside class="notes">
               <p>
-                Continuing with the mandelbrot example. Recorded instructions
-                from the loop is shown again. IR of the recorded instruction
-                looks like ...
+                Continuing with the mandelbrot example. IR of the recorded
+                instruction is ...
               </p>
               <p>
-              the right side.
+              shown at right.
               </p>
               <p>
                 IR contains ...
@@ -596,6 +588,9 @@ L3:
                 <!-- motion. However, compiler in Nash is not much sophisticated at -->
                 <!-- the moment, it is likely to contain some redundant loads. -->
               </p>
+              <p>
+                IR to native code compilation is done in almost straight forward
+                manner, since current Nash compiler is not much sophisticated.
             </aside>
           </section>
 
@@ -614,42 +609,41 @@ L3:
                 next iteration.
               </p>
               <p class="fragment">
-                Native code runs until guard fails.
+                Native code runs until guard fails.  The guard failure triggers
+                a <em>bailout code</em>.
               </p>
               <p class="fragment">
-                <em>Bailout code</em> recovers VM state and pass back the
-                control of user program to the intepreter.
+                Bailout code recovers VM state and passes back the control of
+                user program to the intepreter.
               </p>
             </div>
             <aside class="notes">
               <p>
                 After the compilation, the control flow goes back to the
                 interpreter. It goes back no matter whether the compilation
-                succeeded or failed. At the moment, unfortunately Nash cannot
-                compile all of the bytecode instruction exist in Guile. When the
-                compiler saw unsupported bytecode instruction, it simply aborts
-                the compilation, and falls back to the interpreter.
+                succeeded or failed. At the moment, not all of the bytecode
+                instructions are understood by Nash compiler. When the compiler
+                saw unsupported bytecode instruction, it simply aborts the
+                compilation, and falls back to the interpreter.
               </p>
               <p>
-                So, the recorded trace is compiled to native code, and the
-                control flow is passed back to the interpreter. The interpreter
-                is likely to encounter the beginning of the loop immediately
-                after the compilation, compiled native code exits, thus the
-                interpreter runs the native code.
+                The interpreter will find the native code of the loop from the
+                next iteration. The interpreter is likely to encounter the
+                beginning of the loop immediately after the compilation, because
+                the program is looping.
               </p>
               <p>
-                The native code runs until any of the guard has failed. When
-                guard failed, a special part of the native code called bailout
-                code are invoked.
+                The native code runs until any of the guard fails. The guard
+                failure triggers a bailout code.
               </p>
               <p>
-                The bailout code recovers the state of virtual machine and pass
-                back the control of user programs to the interpreter.
+                The bailout code recovers the state of virtual machine and
+                passes back the control to the interpreter.
               </p>
             </aside>
           </section>
 
-          <section data-background="#f9c7c3">
+          <section data-background="#bfe7dc">
             <div style="float: left; width: 50%;">
               <p>IR of recorded trace</p>
               <pre style="font-size: 18px;
@@ -734,19 +728,18 @@ loop:
             </div>
             <aside class="notes">
               <p>
-                The left side is the IR of recorded trace, same as the one shown
-                previously. The code on the right side is the native code of
-                loop body under x86-64 architecture. The assembly is written in
-                Intel format. I'm skipping most of the details of this native
-                code. Recall that the mandelbrot procedure had a loop containing
-                two comparisons, one comparing the variable i with max
-                iterations, and another comparing the sum of z's with bailout.
+                The left side is the IR of recorded trace. The code on the right
+                side is the native code of loop body under 64bit x86
+                architecture. Recall that the mandelbrot procedure had a loop
+                containing two comparisons,
               </p>
               <p>
-                The two comparisons remains as two guards ...
+                one comparing the variable i with max iterations,
               </p>
               <p>
-                ... in the native code.
+                and another comparing the sum of zi2 and zr2 with a variable
+                named bailout. The two comparisons remains as two guards in the
+                native code.
               </p>
             </aside>
           </section>
@@ -755,8 +748,7 @@ loop:
             <h2>Benchmarks</h2>
             <aside class="notes">
               <p>
-                That was enough for Nash's overview. Showing how well does Nash
-                perform.
+                Showing how well Nash performed.
               </p>
             </aside>
           </section>
@@ -772,6 +764,7 @@ loop:
                   <td>sumfp</td>
                   <td>mbrot</td>
                   <td>sum</td>
+                  <td>ctak</td>
                   <td>string</td>
                   <td>parsing</td>
                   <td>fibc</td>
@@ -785,28 +778,18 @@ loop:
                   <td>0.024</td>
                   <td>0.034</td>
                   <td>0.119</td>
+                  <td>1.073</td>
                   <td>1.115</td>
                   <td>1.654</td>
                   <td>1.678</td>
                   <td>2.506</td>
                   <td>0.400</td>
                 </tr>
-                <!-- <tr> -->
-                <!--   <td>Interpreter<br />w/o bytecode</td> -->
-                <!--   <td>7.926</td> -->
-                <!--   <td>6.626</td> -->
-                <!--   <td>42.579</td> -->
-                <!--   <td>1.125</td> -->
-                <!--   <td>9.685</td> -->
-                <!--   <td>2.507</td> -->
-                <!--   <td>6.359</td> -->
-                <!--   <td>13.770</td> -->
-                <!-- </tr> -->
               </tbody>
             </table>
             <p class="fragment">
               &quot;sumfp&quot; and &quot;mbrot&quot; contain loops with floting
-              point number computations.
+              point number arithmetic.
             </p>
             <p class="fragment">
               &quot;string&quot; and &quot;fibc&quot; mostly use procedures
@@ -819,57 +802,58 @@ loop:
             </div>
             <aside class="notes">
               <p>
-                The shown graph contains benchmark results of Scheme cross
-                platform benchmark suite. The benchmark suite contains 57
-                programs. The benchmark results are normalized to Guile's
-                bytecode interpreter, lower value than one means that Nash
-                performed better than existing Guile bytecode interpreter.
+                The graph is showing results from running Scheme cross platform
+                benchmark suite with Guile bytecode interpreter and Nash. The
+                benchmark suite contains 57 programs. The results are normalized
+                to Guile bytecode interpreter. Lower value than one means that
+                Nash performed better than Guile bytecode interpreter.
 
-                We can see that 52 out of 57 programs ran faster with Nash. In
-                other words, the performance in Nash was worse than Guile's
-                bytecode interpreter for 5 programs: ctak, string, parsing,
-                fibc, and dynamic.
+                Nash ran 52 out of 57 programs faster. In other words, the
+                performance of Nash was worse than Guile's bytecode interpreter
+                in 5 programs.
               </p>
               <p>
-                Showing some of the results in numbers, and geometric mean of
-                the benchmark suite. The benchmark sumfp ran about 40 times
-                faster, and mbrot ran about 30 times faster.
+                Top 3 benchmark with improvement rate were sumfp, mbrot, and
+                sum. The programs ran slower than Guile bytecode interpreter
+                were ctak, string, parsing, fibc, and dynamic. Geometric mean of
+                the benchmark suite for Nash was 0.4.
               </p>
               <p>
-                These two programs contain loops with floating point number
-                computations. The loops contain not much conditional
-                branches. It is known that the tracing JIT technique works well
-                in this kind of programs. Nash achieved this much performance
-                improvement in floating point number loops because Guile, and
-                typical Scheme implementations, uses heap objects to represent
-                floating point numbers. And Nash did flonum arithmetics without
-                boxing and unboxing the heap objects.
+                The benchmark sumfp ran about 40 times faster, and mbrot ran
+                about 30 times faster.  These two programs contain loops with
+                floating point number arithmetic. Nash achieved this much
+                performance improvement in floating point number loops because
+                Guile, and typical Scheme implementations, uses heap objects to
+                represent floating point numbers. Nash did floating number
+                arithmetic with unboxed value in the loop.
 
-                The benchmark sum, also contains tight loop but it does not
-                contain floating point arithmetic, contains only small fixnum
-                operations. Not all of the programs worked well with Nash. The
-                string benchmark contains string related procedures, like
-                string-append and substring.
+                The benchmark sum, also contained tight loop but it did not
+                contain floating point arithmetic. In such case, Nash ran about
+                8 times faster than Guile bytecode interpreter. The string
+                benchmark contains string related procedures, like string-append
+                and substring.
               </p>
               <p>
-                Most of these string related procedures are implemented in C,
-                thus there's not much difference between Nash and Guile's
-                bytecode interpreter, or Nash showing worse results since it has
-                profiling and compilation overhead. Similar thing could be said
-                to benchmarks relating to continuation, since Guile uses C
-                function to implement call/cc.
+                Most of these string related procedures are implemented in C.
+                For C primitive functions, Nash and Guile call the same
+                procedure, thus there's not much difference between Nash and
+                Guile's bytecode interpreter, or Nash showing worse results
+                because Nash has profiling and JIT compilation overheads. The
+                same thing could be said to benchmarks relating to continuation,
+                such as ctak and fibc, since Guile uses C function to implement
+                call-with-current-continuation.
               </p>
               <p>
-                Parsing and dynamic benchmark performed not well in Nash, since
-                these programs contain lots of data driven conditional
+                Parsing and dynamic benchmark performed not well in Nash. These
+                programs contained lots of data driven conditional
                 branches. Data-driven conditional branches causes tracing JIT
                 compiler to make lots of traces, and Nash is not enough
-                sophisticated to handle these kind of situations.
+                sophisticated to handle the situation.
               </p>
             </aside>
           </section>
           <section>
-            <p>Geometric standard scores of benchmark results from 10 Scheme
+            <p>Geometric standard scores of the benchmark suite from 10 Scheme
             native code compilers</p>
             <img data-src="dist.plot.svg" alt="distribution"
                  class="stretch" style="border: none;">
@@ -910,40 +894,37 @@ loop:
               bytecode interpreter was faster.
             </p>
             <p class="fragment">
-              &quot;parsing&quot; was the slowest benchmark.
+              &quot;parsing&quot; was the slowest benchmark for Nash, but the
+              score of Pycket was not so bad.
             </p>
             <aside class="notes">
               <p>
-                Next diagram shows geometric standard scores of benchmark
+                Next diagram is showing geometric standard scores of benchmark
                 results from 10 Scheme native code compilers, shown as box plot,
                 lower value is better. 10 implementations are ...
               </p>
               <p>
                 Chez, Bigloo, Ikarus, Pycket, Gambit, Larceny, Racket, Nash,
                 Chicken, and MIT. The numbers below each implementation is
-                showing geometric mean of the benchmark suite, normalized
-                to Guile's bytecode interpreter.
-                I used geometric standard scores to compute the distributions
-                since total time of benchmark programs are positive
-                numbers. Those green points are the scores of Nash.
+                showing geometric mean of the benchmark suite, normalized to
+                Guile's bytecode interpreter. The green points over the box
+                plots are the scores of Nash.
               </p>
               <p>
-                ... Well, we can see that Chez scheme is really fast.
-                In 14 benchmarks, from sumfp to pnpoly, Nash showed scores
-                better than average.
+                In 14 benchmarks, score of Nash was better than average.
               </p>
               <p>
-                One of the interesting thing I found was that Nash shows the best
-                score in string benchmark, but as we saw in previous slide,
-                Guile's bytecode interpreter was faster than Nash.
+                One thing I found interesting was, Nash showed the best score in
+                string benchmark, but as we saw in previous slide, Guile's
+                bytecode interpreter was faster than Nash.
               </p>
               <p>
-                Another thing I thought interesting was for parsing benchmark,
-                Guile was showing poor score, but the score of Pycket was not so
-                bad. Pycket is an implementation using tracing JIT with using a
-                framework used by Pypy. Seems like the poor result of parsing in
-                Nash is not because of the use of tracing JIT, but Nash's own
-                fault.
+                Another thing I thought interesting was, parsing was the slowest
+                benchmark for Nash, but the score of Pycket was not so
+                bad. Pycket is an implementation with tracing JIT, which uses
+                framework developed by the Pypy project. Seems like the poor
+                performance in parsing for Nash is not caused by tracing JIT,
+                but Nash's own fault.
               </p>
             </aside>
           </section>
@@ -953,7 +934,7 @@ loop:
               <div style="float: left; width: 50%;">
                 <p class="fragment">
                   Significant improvement in tight loop with floating point
-                  arithmetic computations.
+                  arithmetic.
                 </p>
                 <p class="fragment">
                   No need to use &quot;fl+&quot;, &quot;fx+&quot;, ... etc.
@@ -964,7 +945,7 @@ loop:
                   Not much differences in procedures implemented in C.
                 </p>
                 <p class="fragment">Not much suited for programs with large
-                  number of conditional branches, e.g.: parser, interpreter, and
+                  amount of conditional branches, e.g.: parser, interpreter, and
                   compiler.
                 </p>
                 <p class="fragment">JIT warming up time.</p>
@@ -972,52 +953,49 @@ loop:
             </div>
             <aside class="notes">
               <p>
-                I'm summarizing some pros and cons of Nash. Advantages of Nash
+                Summarizing some pros and cons of Nash. The advantages of Nash
                 are ...
               </p>
               <p>
-                Quite obvious, it performs well with tight loops containing
-                floating point arithmetic computations. It runs like 4 to 50
-                times faster than Guile's bytecode interpreter. Also Nash runs
-                faster than other Scheme implementations, except for Pycket, in
-                this kind of programs. I'd like to point out that ...
+                significant improvement in tight loop with floating point
+                arithmetic. The demo ran about 50 times faster than Guile's
+                bytecode interpreter. Also Nash typically runs faster than other
+                Scheme implementations in this kind of programs, except for
+                Pycket. And ...
               </p>
               <p>
-                There's no need to specify arithmetic operations with type
-                specific operators such as fl+ and fx+, since tracing JIT
-                detects the type from runtime values.
+                There's no need to use fl+ and fx+, to specify types, since
+                tracing JIT detects the type from runtime values.
               </p>
               <p>
                 Things showed not much differences are programs calling C
-                functions a lot. This might be specific to Guile, because large
-                part of primitive procedures are implemented in C in Guile, like
-                string related functions I described. This also means that
-                programs depending on the performance of garbage collector will
-                get less performance improvements with Nash, since Guile uses
-                the libgc for garbage collector. Garbage collector related
-                problem are not always a problem in tracing JIT. Other mature
-                tracing JIT implementations does more sophisticated optimization
-                during compilation to remove allocations, but allocation removal
-                optimizations are not done in Nash yet.
+                functions a lot. This might be specific to Guile, because lots
+                of primitive procedures are implemented in C in Guile, like
+                string related functions.
+
+                <!-- This also means that programs -->
+                <!-- depending on the performance of garbage collector will get less -->
+                <!-- performance improvements with Nash, since Guile uses the libgc -->
+                <!-- for garbage collector. Garbage collector related problem are not -->
+                <!-- always a problem in tracing JIT. Other mature tracing JIT -->
+                <!-- implementations does more sophisticated optimization during -->
+                <!-- compilation to remove allocations, but allocation removal -->
+                <!-- optimizations are not done in Nash yet. -->
               </p>
               <p>
-                Another disadvantage is, seems like Nash is not much suited to
-                programs with data-driven conditional branches, such as parser,
-                interpreters, and compiler. I'm bit not sure whether this is a
-                problem in tracing JIT or not for parser, since the performance
-                of Pycket in parsing benchmark. However, probably there's not
-                enough micro benchmarks and real world programs using tracing
-                JIT for compilers and interprers, or maybe just I'm not aware of
-                it.
+                Another disadvantage is, seems like Nash is not much suited for
+                programs with large amount of conditional branches, such as
+                parser, interpreters, and compiler. I'm bit not sure whether
+                this is a problem in tracing JIT or a problem in Nash, since the
+                performance of Pycket in parsing benchmark was not so
+                bad. However, I have not evaluated enough amount of parser,
+                interpreter, and compiler programs with tracing JIT virtual
+                machine, yet.
               </p>
               <p>
-                Another is JIT warming up time. At the beginning, Nash used CPS
-                IR, because Guile already used CPS data type during Scheme to
-                bytecode compilation. But switched to Use of ANF IR because the
-                use CPS compilation had once become a bottleneck. The CPS data
-                type was designed to be used mainly in ahead of time
-                compilations, not for JIT. The JIT compilation time has improved
-                since then, but it still counts when running simple script.
+                Another is JIT warming up time. Since profiling and compilation
+                overhead exist, warming up time shall matter especially when
+                running a simple script.
               </p>
             </aside>
           </section>

@@ -4,14 +4,14 @@ digraph Flow {
         // nodesep=0.25;
         // nodesep=1;
         fontname="Helvetica"
-        bgcolor="transparent"
+        bgcolor="#ffffff"
 
         node [fontname="Helvetica"]
 
         subgraph cluster_interpreter {
                 label="Nash Interpreter";
-                style="filled";
-                color="#f9e7bf";
+                style="solid";
+                color="#cfcfcf";
 
                 node [width=1,shape=box,style="filled,bold,rounded",fontname="Helvetica"] {
                         start [label="Start",fillcolor="#ffffff"];
@@ -47,8 +47,8 @@ digraph Flow {
 
         subgraph cluster_native {
                 label="Native code";
-                style="filled";
-                color="#bfe7dc";
+                style="solid";
+                color="#cfcfcf";
                 node [shape=box,style="filled,bold",fillcolor="#bfdcec"] {
                         native [label="Run compiled code"];
                         recover [label="Recover interpreter state"];

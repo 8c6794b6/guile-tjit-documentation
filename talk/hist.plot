@@ -4,7 +4,7 @@
 # results.
 
 # set terminal canvas enhanced size 1560,520 font "Helvetica,12"
-set terminal svg enhanced size 1600,400 font "Helvetica,16"
+set terminal svg enhanced size 1600,400 font "Helvetica,20"
 if (!exists("outfile")) outfile='hist.svg'
 set output outfile
 
